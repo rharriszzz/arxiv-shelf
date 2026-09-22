@@ -411,7 +411,8 @@ def make_handler(shelf, token, app):
                     return self.send(404, {'error': str(exc)})
             assets = {'/': ('index.html', 'text/html; charset=utf-8'),
                       '/app.js': ('app.js', 'text/javascript; charset=utf-8'),
-                      '/style.css': ('style.css', 'text/css; charset=utf-8')}
+                      '/style.css': ('style.css', 'text/css; charset=utf-8'),
+                      '/favicon.svg': ('favicon.svg', 'image/svg+xml')}
             if path in assets:
                 file, mime = assets[path]
                 return self.send(200, (ROOT / 'web' / file).read_bytes(), mime)

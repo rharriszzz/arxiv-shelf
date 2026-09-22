@@ -203,3 +203,40 @@ Do not add individual-request fallback yet: earlier singles sometimes failed,
 and cache hits could make that workaround look reliable when it is not. Do not
 add random query parameters, rapid retries, or cache-busting loops. The fixed
 reverse-order suite provides a small, reproducible comparison.
+
+## Mac reverse-order results — September 22, 2026
+
+Ran the requested `order` suite unchanged at commit
+`87a42365d595b7121e8a85e645077a444ed1afca` with the shelf stopped. Full machine-readable results, exact URLs,
+platform details, and selected headers are in `diagnostics/mac-order.json`.
+All requested editions were returned; no IDs were missing.
+
+| UTC (2026-09-22) | Request | HTTP | X-Cache |
+| --- | --- | --- | --- |
+| 19:43:02 | Reversed two-paper batch | 200 | MISS, MISS, MISS |
+| 19:43:06 | Reversed six-paper batch | 200 | MISS, MISS, MISS |
+| 19:43:09 | Original two-paper control | 200 | MISS, MISS, HIT |
+
+The probe reported no configured proxies. Separate `scutil --proxy` and
+`scutil --nc list` checks both exited successfully: no proxy-enable flags were
+reported and zero connected VPN configurations were listed. This does not
+independently exclude every third-party VPN or transparent network proxy.
+
+Both exact reverse-order URLs that failed on the PC at 19:39 succeeded on the
+Mac at 19:43, including with cache misses. Thus, a cache miss does not universally
+cause a 406 response. The outcome remains consistent with several explanations,
+including a route/client-dependent upstream response or a change over time.
+These observations alone do not identify the source of the 406 or prove that
+Mac requests populate a cache subsequently used by the PC.
+
+**Next PC action:** pull this report, stop the shelf, and run:
+
+```sh
+python3 diagnostics/arxiv_probe.py --suite order --output diagnostics/pc-after-mac-order.json
+```
+
+Compare the exact URLs, timestamps, returned IDs, and cache headers. If the
+reversed URLs now return 200/HIT on the PC, that strengthens (but does not prove)
+the shared-cache explanation. If identical URLs still fail there, follow the
+bounded WSL curl versus Windows curl comparison above. No application request
+changes or fallback were added, and the probe made no catalog writes.

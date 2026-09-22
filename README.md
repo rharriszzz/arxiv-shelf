@@ -53,3 +53,19 @@ node --check web/app.js
 ```
 
 The app uses Python's standard library and plain HTML/CSS/JavaScript. Tests cover filename recognition, legacy ID recovery, metadata parsing, duplicate handling, cached/offline scans, network failures, subfolders, symlink boundaries, and HTTP launch protections.
+
+## One library on your Mac and PC
+
+The portable **catalog/** folder is now stored in this Git repository. It remembers papers even when their PDFs are deleted, moved, or only exist on another computer. Your existing local index is migrated automatically on the first run. Local duplicates stay separate when present; an unavailable paper edition appears once. Different arXiv versions are separate editions and have separate ratings.
+
+Use **Sync with GitHub** before switching computers, and again after opening the shelf on the other computer. Sync commits only catalog changes, pulls the other computer's updates, then pushes your changes. It needs Git and working authentication for `origin` on each computer. It reports authentication/network errors without discarding your local catalog. If you have uncommitted application code changes, commit or stash them in your terminal first. If a pull updates application code, restart the app to load that code.
+
+On the PC, clone this repository (or pull the latest changes in an existing checkout), then run `python shelf.py` or `py shelf.py`. The catalog comes with the repository; `.shelf/` stays local and is not shared. Windows-specific Acrobat launching and a double-click launcher remain on the PC follow-up list in TODO.md. Browser preview can be used in the meantime.
+
+Each entry has a **Not rated / 1–5 stars** selector. Ratings save immediately on this computer and travel to the other one at the next GitHub sync. Choose **Rating** in the sort menu, or **Rated papers** in the filter.
+
+Entries say **On this computer** or **Not on this computer**. A missing paper with a known arXiv ID has a **Download PDF** button. It downloads from arXiv into the selected local Downloads folder and rescans so you can open it. Versioned entries request that version; unversioned entries request the current PDF. Existing files are never overwritten. Failed, non-PDF, incomplete, and oversized (over 200 MB) responses are rejected. An unresolved legacy ID needs to be identified before downloading.
+
+Catalog events contain titles, authors, abstracts, arXiv IDs, filenames, and ratings—no PDFs or absolute local paths. Anyone who can read your GitHub repository can read the catalog. Independent updates use unique event files so Git can merge additions from both computers. If the same rating changes on both computers before syncing, the update with the later computer timestamp wins; keep both system clocks accurate. Sync is explicit, not automatic background uploading.
+
+Advanced: `--catalog PATH` selects a different portable catalog directory. The built-in GitHub sync button requires that directory to be inside the app repository. Back up or sync the entire catalog directory, and do not edit/delete individual event files. Other synchronized folders can be used with an external file-sync service, without using the GitHub button.

@@ -15,3 +15,7 @@ The Python indexer and browser interface are largely portable already. The main 
 - Run the automated tests on Windows, accounting for Windows symlink permissions. Verify scanning, cached/offline use, search, sorting, rescanning, browser preview, and opening the correct local PDF in Reader.
 
 Do the Windows-specific implementation and end-to-end verification on the PC, where the installed Reader path, Downloads location, Python setup, and permissions can be checked directly.
+
+## Shared catalog follow-up on the PC
+
+The persistent Git-backed catalog, 1–5 star ratings, missing-file download button, and explicit **Sync with GitHub** button are implemented. The `catalog/` folder is shared in this repository; `.shelf/` is still a local cache. Clone/pull the repository on the PC and configure GitHub authentication there. Verify a round trip: sync on the Mac, see the catalog on the PC, download a missing PDF, add/rate a PC paper, sync there, and sync again on the Mac. Check Windows Git/SSH availability and download behavior along with the remaining Acrobat integration above.

@@ -3,6 +3,10 @@
 import argparse
 import hashlib
 import json
+import os
+import tempfile
+from catalog import Catalog, paper_key
+from sync import git_sync
 from pathlib import Path
 import re
 import secrets
@@ -86,54 +90,114 @@ def fetch_metadata(ids, title=None):
 
 
 class Shelf:
-    def __init__(self, directory, cache, recursive=False, offline=False):
+    def __init__(self, directory, cache, recursive=False, offline=False, catalog=None):
         self.directory = directory.resolve()
         self.cache = cache
         self.recursive = recursive
         self.offline = offline
-        self.lock = threading.Lock()
+        self.lock = threading.RLock()
+        self.catalog = Catalog(catalog or cache.parent / "catalog")
+        self.download_lock = threading.Lock()
         self.scanning = False
+        self.syncing = False
         self.message = 'Ready to scan'
         self.error = ''
         self.papers = []
         self.metadata = {}
         self.last_scan = ''
         try:
-            saved = json.loads(cache.read_text())
+            saved = json.loads(cache.read_text(encoding='utf-8'))
             self.metadata = saved.get('metadata', {})
             if saved.get('directory') == str(self.directory) and saved.get('recursive') == recursive:
                 self.papers = saved.get('papers', [])
                 self.last_scan = saved.get('last_scan', '')
         except (OSError, ValueError):
             pass
+        self.catalog.remember(self.papers)
+        for record in self.catalog.read().values():
+            if record.get('arxiv_id') and record.get('title'):
+                self.metadata.setdefault(record['arxiv_id'], {f: record.get(f, [] if f == 'authors' else '') for f in ('title', 'authors', 'abstract', 'published')})
+
+    def library(self):
+        records = self.catalog.read()
+        result, available = [], set()
+        for local in self.papers:
+            try:
+                self.find_path(local['key'])
+            except ValueError:
+                continue
+            key = paper_key(local)
+            record = records.get(key, {})
+            paper = {**local, **{f: record[f] for f in ('title', 'authors', 'abstract', 'published') if record.get(f)},
+                     'catalog_key': key, 'rating': record.get('rating', 0), 'available': True}
+            result.append(paper)
+            available.add(key)
+        for key, record in records.items():
+            if key in available:
+                continue
+            result.append({'key': key, 'filename': ', '.join(record.get('filenames', [])),
+                           'path': '', 'size': 0, 'mtime': 0, 'valid_pdf': True,
+                           'status': 'indexed' if record.get('title') else 'unresolved',
+                           'note': '', 'excerpt': '', 'title': '', 'authors': [],
+                           'abstract': '', 'published': '', 'arxiv_id': None,
+                           **record, 'available': False})
+        return result
 
     def snapshot(self):
         with self.lock:
-            return {'papers': self.papers, 'directory': str(self.directory),
-                    'scanning': self.scanning, 'message': self.message,
+            return {'papers': self.library(), 'directory': str(self.directory), 'catalog': str(self.catalog.directory),
+                    'scanning': self.scanning, 'syncing': self.syncing, 'message': self.message,
                     'error': self.error, 'last_scan': self.last_scan}
 
     def start_scan(self):
         with self.lock:
-            if self.scanning:
+            if self.scanning or self.syncing or self.download_lock.locked():
                 return False
             self.scanning = True
             self.error = ''
         threading.Thread(target=self.scan, daemon=True).start()
         return True
 
+    def start_sync(self):
+        with self.lock:
+            if self.scanning or self.syncing or self.download_lock.locked():
+                raise ValueError('Wait for the current scan, download, or sync to finish.')
+            if self.offline:
+                raise ValueError('GitHub sync is disabled in offline mode.')
+            self.syncing = True
+            self.error = ''
+            self.message = 'Syncing catalog and ratings with GitHub'
+        def run():
+            try:
+                self.message = git_sync(ROOT, self.catalog.directory)
+            except Exception as exc:
+                self.error = 'GitHub sync failed: ' + str(exc)
+                self.message = 'Sync incomplete; your local catalog is saved'
+            finally:
+                self.syncing = False
+        threading.Thread(target=run, daemon=True).start()
+
+    def rate(self, key, value):
+        with self.lock:
+            if self.syncing:
+                raise ValueError('Wait for GitHub sync to finish before changing ratings.')
+            self.catalog.rate(key, value)
+
     def save(self):
         self.cache.parent.mkdir(parents=True, exist_ok=True)
         temp = self.cache.with_suffix('.tmp')
         temp.write_text(json.dumps({'directory': str(self.directory), 'recursive': self.recursive,
                                     'papers': self.papers, 'metadata': self.metadata,
-                                    'last_scan': self.last_scan}, ensure_ascii=False, indent=2))
+                                    'last_scan': self.last_scan}, ensure_ascii=False, indent=2), encoding='utf-8')
         temp.replace(self.cache)
 
     def scan(self):
         try:
             if not self.directory.is_dir():
                 raise ValueError(f'Directory does not exist: {self.directory}')
+            for record in self.catalog.read().values():
+                if record.get('arxiv_id') and record.get('title'):
+                    self.metadata.setdefault(record['arxiv_id'], {f: record.get(f, [] if f == 'authors' else '') for f in ('title', 'authors', 'abstract', 'published')})
             paths = self.directory.rglob('*') if self.recursive else self.directory.iterdir()
             candidates = sorted(p for p in paths if p.is_file() and filename_id(p.name))
             papers = []
@@ -223,15 +287,79 @@ class Shelf:
                     p['status'] = 'unresolved'
                     p['note'] = p['note'] or 'Metadata unavailable. Rescan with internet access to retry.'
             with self.lock:
+                self.catalog.remember(self.papers + papers)
                 self.papers = papers
                 self.last_scan = time.strftime('%Y-%m-%d %H:%M:%S')
                 self.error = '; '.join(errors)
-                self.message = f'{len(papers)} files · {sum(p["status"] == "indexed" for p in papers)} with metadata'
+                self.message = f'{len(papers)} local files · {sum(p["status"] == "indexed" for p in papers)} with metadata'
             self.save()
         except Exception as exc:
             self.error = str(exc)
         finally:
             self.scanning = False
+
+    def download(self, key):
+        with self.lock:
+            if self.syncing or self.scanning:
+                raise ValueError('Wait for the current scan or GitHub sync to finish before downloading.')
+            if self.offline:
+                raise ValueError('Downloads are disabled in offline mode. Restart without --offline.')
+            if not self.download_lock.acquire(blocking=False):
+                raise ValueError('Another download is running. Please wait for it to finish.')
+        temporary = None
+        try:
+            record = self.catalog.read().get(key)
+            identifier = record.get('arxiv_id', '') if record else ''
+            if not identifier or not re.fullmatch(rf'(?:{MODERN}|{LEGACY})(?:v\d+)?', identifier, re.I):
+                raise ValueError('This paper needs a complete arXiv ID before it can be downloaded.')
+            with self.lock:
+                for paper in self.library():
+                    if paper['catalog_key'] == key and paper['available'] and paper['valid_pdf']:
+                        return
+            self.directory.mkdir(parents=True, exist_ok=True)
+            request = Request('https://arxiv.org/pdf/' + identifier,
+                              headers={'User-Agent': 'arxiv-shelf/1.1 (personal PDF library)'})
+            with urlopen(request, timeout=90) as response:
+                with tempfile.NamedTemporaryFile(dir=self.directory, prefix='.arxiv-', suffix='.part', delete=False) as out:
+                    temporary = Path(out.name)
+                    total, first = 0, True
+                    while True:
+                        chunk = response.read(65536)
+                        if not chunk:
+                            break
+                        if first and not chunk.lstrip().startswith(b'%PDF-'):
+                            raise ValueError('arXiv returned something other than a PDF. Please try again later.')
+                        first = False
+                        total += len(chunk)
+                        if total > 200 * 1024 * 1024:
+                            raise ValueError('Download exceeds the 200 MB limit.')
+                        out.write(chunk)
+                    length = response.headers.get('Content-Length')
+                    if first or (length and total != int(length)):
+                        raise ValueError('The download was incomplete. Please try again.')
+            # Exclusive creation avoids overwriting existing files, including symlinks.
+            stem = identifier.replace('/', '_')
+            for n in range(10000):
+                destination = self.directory / (stem + (f' ({n})' if n else '') + '.pdf')
+                try:
+                    with destination.open('xb') as out:
+                        try:
+                            with temporary.open('rb') as source:
+                                shutil.copyfileobj(source, out)
+                        except BaseException:
+                            out.close()
+                            destination.unlink(missing_ok=True)
+                            raise
+                    break
+                except FileExistsError:
+                    continue
+            else:
+                raise ValueError('No unused filename is available for this download.')
+        finally:
+            if temporary:
+                temporary.unlink(missing_ok=True)
+            self.download_lock.release()
+        self.start_scan()
 
     def find_path(self, key):
         with self.lock:
@@ -296,9 +424,31 @@ def make_handler(shelf, token, app):
             if not self.local_request() or self.headers.get('X-Shelf-Token') != token:
                 return self.send(403, {'error': 'Please reload the shelf and try again.'})
             path = urlparse(self.path).path
+            if path == '/api/sync':
+                try:
+                    shelf.start_sync()
+                    return self.send(202, {'ok': True})
+                except ValueError as exc:
+                    return self.send(400, {'error': str(exc)})
             if path == '/api/scan':
                 shelf.start_scan()
                 return self.send(202, {'ok': True})
+            if path.startswith('/api/rate/'):
+                try:
+                    size = int(self.headers.get('Content-Length', '0'))
+                    if not 0 < size <= 100:
+                        raise ValueError('Invalid rating request.')
+                    value = json.loads(self.rfile.read(size))['rating']
+                    shelf.rate(path[len('/api/rate/'):], value)
+                    return self.send(200, {'ok': True})
+                except (OSError, ValueError, KeyError, TypeError) as exc:
+                    return self.send(400, {'error': str(exc)})
+            if path.startswith('/api/download/'):
+                try:
+                    shelf.download(path[len('/api/download/'):])
+                    return self.send(200, {'ok': True})
+                except Exception as exc:
+                    return self.send(400, {'error': str(exc)})
             if path.startswith('/api/open/'):
                 try:
                     open_pdf(shelf.find_path(path[len('/api/open/'):]), app)
@@ -313,13 +463,14 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--directory', type=Path, default=Path.home() / 'Downloads')
     parser.add_argument('--cache', type=Path, default=ROOT / '.shelf' / 'index.json')
+    parser.add_argument('--catalog', type=Path, default=ROOT / 'catalog', help='Portable catalog folder (default: catalog/ in this Git repository)')
     parser.add_argument('--recursive', action='store_true', help='Include subfolders')
     parser.add_argument('--offline', action='store_true', help='Use cached metadata without contacting arXiv')
     parser.add_argument('--scan-only', action='store_true', help='Update the index and exit')
     parser.add_argument('--port', type=int, default=8765)
     parser.add_argument('--acrobat-app', default='Adobe Acrobat')
     args = parser.parse_args()
-    shelf = Shelf(args.directory.expanduser(), args.cache.expanduser(), args.recursive, args.offline)
+    shelf = Shelf(args.directory.expanduser(), args.cache.expanduser(), args.recursive, args.offline, args.catalog)
     if args.scan_only:
         shelf.scan()
         print(shelf.message)

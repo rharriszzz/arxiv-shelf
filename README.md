@@ -68,6 +68,7 @@ Search uses all typed words, ignoring case. Sorting by author uses the first aut
 ```sh
 python3 -m unittest discover -s tests -v
 node --check web/app.js
+node tests/test_download_ui.js
 ```
 
 The app uses Python's standard library and plain HTML/CSS/JavaScript. Tests cover filename recognition, legacy ID recovery, metadata parsing, duplicate handling, cached/offline scans, network failures, subfolders, symlink boundaries, and HTTP launch protections.
@@ -82,7 +83,7 @@ On the PC, clone this repository (or pull the latest changes in an existing chec
 
 Each entry has a **Not rated / 1–5 stars** selector. Ratings save immediately on this computer and travel to the other one at the next GitHub sync. Choose **Rating** in the sort menu, or **Rated papers** in the filter.
 
-Entries say **On this computer** or **Not on this computer**. A missing paper with a known arXiv ID has a **Download PDF** button. It downloads from arXiv into the selected local Downloads folder and rescans so you can open it. Versioned entries request that version; unversioned entries request the current PDF. Existing files are never overwritten. Failed, non-PDF, incomplete, and oversized (over 200 MB) responses are rejected. An unresolved legacy ID needs to be identified before downloading.
+Entries say **On this computer** or **Not on this computer**. A missing paper with a known arXiv ID has a **Download PDF** button. It downloads from arXiv into the selected local Downloads folder and rescans so you can open it. Versioned entries request that version; unversioned entries request the current PDF. The row shows connection, transfer, and indexing progress; when the server provides a file size, it shows a percentage, otherwise bytes received. After indexing finishes, the button switches to **Open PDF** and browser preview becomes available. Failures remain visible and the button allows a retry. If the Python PDF request receives HTTP 406, the app makes one spaced retry using `curl` when installed; other HTTP errors are not retried automatically. Existing files are never overwritten. Failed, non-PDF, incomplete, and oversized (over 200 MB) responses are rejected. An unresolved legacy ID needs to be identified before downloading.
 
 Catalog events contain titles, authors, abstracts, arXiv IDs, filenames, and ratings—no PDFs or absolute local paths. Anyone who can read your GitHub repository can read the catalog. Independent updates use unique event files so Git can merge additions from both computers. If the same rating changes on both computers before syncing, the update with the later computer timestamp wins; keep both system clocks accurate. Sync is explicit, not automatic background uploading.
 

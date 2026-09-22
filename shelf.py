@@ -7,6 +7,7 @@ import os
 import tempfile
 from catalog import Catalog, paper_key
 from sync import git_sync
+from transfer import pdf_response
 from desktop import default_directory, open_pdf, open_browser
 from pathlib import Path
 import re
@@ -99,6 +100,7 @@ class Shelf:
         self.lock = threading.RLock()
         self.catalog = Catalog(catalog or cache.parent / "catalog")
         self.download_lock = threading.Lock()
+        self.download_state = None
         self.scanning = False
         self.syncing = False
         self.message = 'Ready to scan'
@@ -153,7 +155,8 @@ class Shelf:
         with self.lock:
             return {'papers': self.library(), 'directory': str(self.directory), 'catalog': str(self.catalog.directory),
                     'scanning': self.scanning, 'syncing': self.syncing, 'message': self.message,
-                    'error': self.error, 'last_scan': self.last_scan}
+                    'error': self.error, 'last_scan': self.last_scan,
+                    'download': dict(self.download_state) if self.download_state else None}
 
     def start_scan(self):
         with self.lock:
@@ -304,6 +307,10 @@ class Shelf:
         finally:
             self.scanning = False
 
+    def update_download(self, **values):
+        with self.lock:
+            self.download_state.update(values)
+
     def download(self, key):
         with self.lock:
             if self.syncing or self.scanning:
@@ -312,6 +319,7 @@ class Shelf:
                 raise ValueError('Downloads are disabled in offline mode. Restart without --offline.')
             if not self.download_lock.acquire(blocking=False):
                 raise ValueError('Another download is running. Please wait for it to finish.')
+            self.download_state = {'key': key, 'status': 'connecting', 'bytes': 0, 'total': None, 'error': ''}
         temporary = None
         try:
             record = self.catalog.read().get(key)
@@ -321,11 +329,15 @@ class Shelf:
             with self.lock:
                 for paper in self.library():
                     if paper['catalog_key'] == key and paper['available'] and paper['valid_pdf']:
+                        self.update_download(status='complete')
                         return
             self.directory.mkdir(parents=True, exist_ok=True)
             request = Request('https://arxiv.org/pdf/' + identifier,
                               headers={'User-Agent': 'arxiv-shelf/1.1 (personal PDF library)'})
-            with urlopen(request, timeout=90) as response:
+            with pdf_response(request) as response:
+                length = response.headers.get('Content-Length')
+                expected = int(length) if length else None
+                self.update_download(status='downloading', total=expected)
                 with tempfile.NamedTemporaryFile(dir=self.directory, prefix='.arxiv-', suffix='.part', delete=False) as out:
                     temporary = Path(out.name)
                     total, first = 0, True
@@ -340,6 +352,7 @@ class Shelf:
                         if total > 200 * 1024 * 1024:
                             raise ValueError('Download exceeds the 200 MB limit.')
                         out.write(chunk)
+                        self.update_download(bytes=total)
                     length = response.headers.get('Content-Length')
                     if first or (length and total != int(length)):
                         raise ValueError('The download was incomplete. Please try again.')
@@ -361,11 +374,21 @@ class Shelf:
                     continue
             else:
                 raise ValueError('No unused filename is available for this download.')
+            self.update_download(status='indexing')
+            with self.lock:
+                self.scanning = True
+            self.scan()
+            if not any(p['catalog_key'] == key and p['available'] for p in self.library()):
+                raise ValueError('PDF saved, but indexing failed. Rescan the folder. ' + self.error)
+            self.update_download(status='complete')
+        except Exception as exc:
+            self.update_download(status='failed', error=str(exc))
+            print(f'PDF download failed for {key}: {exc}', file=sys.stderr, flush=True)
+            raise
         finally:
             if temporary:
                 temporary.unlink(missing_ok=True)
             self.download_lock.release()
-        self.start_scan()
 
     def find_path(self, key):
         with self.lock:

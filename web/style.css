@@ -3,3 +3,5 @@
 .rating{margin-top:12px;height:30px;min-width:105px;font-size:12px;color:#6d652b}.file-meta{line-height:1.6}#catalog{display:block;overflow-wrap:anywhere}
 
 .toolbar{display:flex;gap:10px;flex-wrap:wrap}.secondary{background:#fffefb;border:1px solid #cbd8c4;color:#375c40;border-radius:6px;padding:12px 18px;white-space:nowrap}
+
+.download-progress{display:block;width:100%;height:7px;margin-top:10px;accent-color:#2f523c}.download-error{margin-top:8px;font-size:11px;color:#7d531c}

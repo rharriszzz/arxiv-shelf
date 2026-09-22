@@ -4,6 +4,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+import threading
 import unittest
 from unittest.mock import patch
 
@@ -160,7 +161,7 @@ class DownloadTests(unittest.TestCase):
         index.catalog.remember([paper('hep-th/0401056v1')])
         return index, paper_key(paper('hep-th/0401056v1'))
 
-    @patch('shelf.urlopen')
+    @patch('shelf.pdf_response')
     def test_pdf_download_no_overwrite(self, fetch):
         index, key = self.make_index()
         existing = index.directory / 'hep-th_0401056v1.pdf'
@@ -168,15 +169,15 @@ class DownloadTests(unittest.TestCase):
         response = io.BytesIO(b'%PDF-1.4 downloaded fixture')
         response.headers = {'Content-Length':str(len(response.getvalue()))}
         fetch.return_value = response
-        with patch.object(index, 'start_scan') as scan:
-            index.download(key)
-            scan.assert_called_once()
+        index.download(key)
+        self.assertTrue(index.library()[0]['available'])
+        self.assertEqual(index.snapshot()['download']['status'], 'complete')
         self.assertEqual(existing.read_bytes(), b'Existing file stays untouched')
         self.assertTrue((index.directory / 'hep-th_0401056v1 (1).pdf').exists())
         self.assertFalse(list(index.directory.glob('*.part')))
         self.assertEqual(fetch.call_args.args[0].full_url, 'https://arxiv.org/pdf/hep-th/0401056v1')
 
-    @patch('shelf.urlopen')
+    @patch('shelf.pdf_response')
     def test_non_pdf_and_incomplete_downloads_leave_no_pdf(self, fetch):
         index, key = self.make_index()
         for content, size in [(b'<html>Error</html>', 18), (b'%PDF-1.4 cut off', 999)]:
@@ -185,6 +186,49 @@ class DownloadTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 index.download(key)
             self.assertEqual(list(index.directory.iterdir()), [])
+
+    @patch('shelf.pdf_response')
+    def test_progress_visible_and_success_only_after_indexing(self, fetch):
+        index, key = self.make_index()
+        paused, resume = threading.Event(), threading.Event()
+        payload = b'%PDF-1.4' + b' ' * 70000
+
+        class SlowResponse(io.BytesIO):
+            headers = {'Content-Length': str(len(payload))}
+
+            def read(self, size):
+                if self.tell():
+                    paused.set()
+                    if not resume.wait(5):
+                        raise TimeoutError('Test transfer timed out')
+                return super().read(size)
+
+        fetch.return_value = SlowResponse(payload)
+        errors = []
+        def run():
+            try:
+                index.download(key)
+            except Exception as exc:
+                errors.append(exc)
+        thread = threading.Thread(target=run)
+        thread.start()
+        try:
+            self.assertTrue(paused.wait(3))
+            state = index.snapshot()['download']
+            self.assertEqual(state['status'], 'downloading')
+            self.assertEqual(state['bytes'], 65536)
+            self.assertEqual(state['total'], len(payload))
+            self.assertFalse(index.start_scan())
+            with self.assertRaisesRegex(ValueError, 'Another download'):
+                index.download(key)
+        finally:
+            resume.set()
+            thread.join(5)
+        self.assertFalse(thread.is_alive())
+        self.assertEqual(errors, [])
+        self.assertEqual(index.snapshot()['download']['status'], 'complete')
+        self.assertTrue(index.library()[0]['available'])
+        self.assertTrue(index.cache.exists())
 
     def test_unresolved_and_offline_download_errors(self):
         index, key = self.make_index()

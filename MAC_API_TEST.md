@@ -392,3 +392,26 @@ Record the tested commit, interpreter details, unit-test outcome, and launcher,
 catalog, and PDF-opening results here. No system Python replacement or other
 project environment changes are requested. If a lookup fails again, capture one
 bounded diagnostic report with the existing probe, rather than running loops.
+
+## Follow-up: one missing-metadata entry after successful PC scan
+
+The catalog still contained an unresolved placeholder for `0501052v1.pdf` as well
+as the resolved `quant-ph/0501052v1` entry, *Introduction to PT-Symmetric Quantum
+Theory*. The six local PDFs had metadata, but the earlier placeholder remained
+as a seventh, unavailable entry for that PC import. This was a catalog identity
+migration bug, not another API failure.
+
+The fix records an append-only alias from the exact local file's unresolved key
+to its resolved edition key. Catalog replay merges the records and ratings;
+stale local caches also display the resolved metadata. Matching is not based on
+filename alone, and historical event files are retained.
+
+After the repair, the shared catalog has 234 entries and zero missing titles;
+the PC still has six local PDFs with metadata. All 24 tests pass, including
+cross-computer alias replay, preservation of later ratings, repeat scans, and
+stale-cache display.
+
+Mac check after pulling the fix: restart the shelf server (browser refresh alone
+will not load Python code), then confirm the unnamed `0501052v1.pdf` placeholder
+is gone and the resolved title remains. Both the code and the new catalog event
+must be pulled; older application code does not interpret the alias event.

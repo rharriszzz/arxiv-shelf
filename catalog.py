@@ -20,6 +20,9 @@ class Catalog:
         self.lock = threading.RLock()
 
     def read(self):
+        return self.read_state()[0]
+
+    def read_state(self):
         """Re-read to pick up changes delivered by sync; never overwrite remote events."""
         with self.lock:
             papers, ratings = {}, {}
@@ -32,16 +35,22 @@ class Catalog:
                     events.append(event)
                 except (OSError, ValueError) as exc:
                     raise ValueError(f'Cannot read catalog event {path.name}: {exc}') from exc
-            for event in sorted(events, key=lambda e: (e['time'], e['id'])):
+            events.sort(key=lambda e: (e['time'], e['id']))
+            aliases = {}
+            for event in events:
+                aliases.update(event.get('aliases', {}))
+            for event in events:
                 for key, paper in event.get('papers', {}).items():
+                    key = aliases.get(key, key)
                     old = papers.get(key, {})
                     names = sorted(set(old.get('filenames', []) + paper.get('filenames', [])))
                     papers[key] = {**old, **paper, 'filenames': names}
-                ratings.update(event.get('ratings', {}))
+                for key, rating in event.get('ratings', {}).items():
+                    ratings[aliases.get(key, key)] = rating
             for key, paper in papers.items():
                 paper['catalog_key'] = key
                 paper['rating'] = ratings.get(key, 0)
-            return papers
+            return papers, aliases
 
     def _append(self, **changes):
         self.directory.mkdir(parents=True, exist_ok=True)
@@ -57,10 +66,21 @@ class Catalog:
 
     def remember(self, local_papers):
         with self.lock:
-            existing = self.read()
-            changes = {}
+            existing, aliases = self.read_state()
+            changes, resolutions = {}, {}
+            local_papers = list(local_papers)
+            # Only link a placeholder for this exact local file, never by filename.
+            for paper in local_papers:
+                if not paper.get('arxiv_id'):
+                    continue
+                unresolved = paper_key({'key': paper['key']})
+                if unresolved in existing and unresolved not in aliases:
+                    resolutions[unresolved] = paper_key(paper)
+            aliases.update(resolutions)
+
             for paper in local_papers:
                 key = paper_key(paper)
+                key = aliases.get(key, key)
                 old = changes.get(key, existing.get(key, {}))
                 record = {field: paper.get(field) for field in FIELDS}
                 # An offline/missing-metadata scan must not erase known metadata.
@@ -69,8 +89,8 @@ class Catalog:
                 merged = {**{f: old[f] for f in (*FIELDS, 'filenames') if f in old}, **record}
                 if merged != {f: old[f] for f in (*FIELDS, 'filenames') if f in old}:
                     changes[key] = merged
-            if changes:
-                self._append(papers=changes)
+            if changes or resolutions:
+                self._append(papers=changes, aliases=resolutions)
 
     def rate(self, key, value):
         if type(value) is not int or not 0 <= value <= 5:

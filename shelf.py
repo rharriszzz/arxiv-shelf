@@ -120,7 +120,7 @@ class Shelf:
                 self.metadata.setdefault(record['arxiv_id'], {f: record.get(f, [] if f == 'authors' else '') for f in ('title', 'authors', 'abstract', 'published')})
 
     def library(self):
-        records = self.catalog.read()
+        records, aliases = self.catalog.read_state()
         result, available = [], set()
         for local in self.papers:
             try:
@@ -128,9 +128,14 @@ class Shelf:
             except ValueError:
                 continue
             key = paper_key(local)
+            key = aliases.get(key, key)
             record = records.get(key, {})
-            paper = {**local, **{f: record[f] for f in ('title', 'authors', 'abstract', 'published') if record.get(f)},
+            paper = {**local, **{f: record[f] for f in ('arxiv_id', 'title', 'authors', 'abstract', 'published') if record.get(f)},
                      'catalog_key': key, 'rating': record.get('rating', 0), 'available': True}
+            if paper.get('arxiv_id') and paper.get('title'):
+                paper['status'] = 'indexed'
+                if key != paper_key(local) and paper['valid_pdf']:
+                    paper['note'] = ''
             result.append(paper)
             available.add(key)
         for key, record in records.items():

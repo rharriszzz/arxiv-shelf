@@ -74,6 +74,71 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual(index.library()[0]['title'], 'A paper')
         self.assertFalse(index.library()[0]['available'])
 
+    def test_resolved_legacy_placeholder_merges_across_computers(self):
+        pc, mac = Catalog(self.root / 'pc'), Catalog(self.root / 'mac')
+        unknown = {'key': 'local-file-key', 'filename': '0501052v1.pdf', 'arxiv_id': None}
+        known = {**unknown, 'arxiv_id': 'quant-ph/0501052v1', 'title': 'Known title'}
+        old_key, new_key = paper_key(unknown), paper_key(known)
+        pc.remember([unknown])
+        pc.rate(old_key, 4)
+        mac.directory.mkdir()
+        for event in pc.directory.glob('*.json'):
+            shutil.copy2(event, mac.directory / event.name)
+        # Identification must preserve an earlier rating and remove the placeholder.
+        pc.remember([unknown, known])
+        self.assertEqual(set(pc.read()), {new_key})
+        self.assertEqual(pc.read()[new_key]['rating'], 4)
+        self.assertEqual(pc.read()[new_key]['title'], 'Known title')
+        count = len(list(pc.directory.glob('*.json')))
+        pc.remember([unknown, known])
+        self.assertEqual(len(list(pc.directory.glob('*.json'))), count)
+        # An offline Mac can still rate its old entry; the later rating wins on sync.
+        mac.rate(old_key, 5)
+        for source, target in ((pc, mac), (mac, pc)):
+            for event in source.directory.glob('*.json'):
+                shutil.copy2(event, target.directory / event.name)
+        self.assertEqual(pc.read(), mac.read())
+        self.assertEqual(set(mac.read()), {new_key})
+        self.assertEqual(mac.read()[new_key]['rating'], 5)
+        pc.rate(new_key, 0)
+        self.assertEqual(pc.read()[new_key]['rating'], 0)
+        # Same filename at another local path is not sufficient evidence to merge.
+        other = {**unknown, 'key': 'different-local-file'}
+        pc.remember([other])
+        self.assertIn(paper_key(other), pc.read())
+
+    @patch('shelf.first_page', return_value='arXiv:quant-ph/0501052v1')
+    def test_scan_repairs_existing_placeholder_without_duplicate_on_other_computer(self, page):
+        downloads = self.root / 'Downloads'
+        downloads.mkdir()
+        (downloads / '0501052v1.pdf').write_bytes(b'%PDF-1.4 fixture')
+        index = Shelf(downloads, self.root / 'cache.json', offline=True)
+        with patch('shelf.first_page', return_value=''):
+            index.scan()
+        old_key = index.library()[0]['catalog_key']
+        index.rate(old_key, 3)
+        index.metadata['quant-ph/0501052v1'] = {'title': 'Known title', 'authors': ['Author']}
+        index.scan()
+        self.assertEqual(len(index.library()), 1)
+        self.assertEqual(index.library()[0]['title'], 'Known title')
+        self.assertEqual(index.library()[0]['rating'], 3)
+        # Reproduce a remote machine with no corresponding PDF.
+        remote_dir = self.root / 'RemoteDownloads'
+        remote_dir.mkdir()
+        remote = Shelf(remote_dir, self.root / 'remote.json', offline=True,
+                       catalog=index.catalog.directory)
+        remote.scan()
+        self.assertEqual(len(remote.library()), 1)
+        self.assertFalse(remote.library()[0]['available'])
+        self.assertEqual(remote.library()[0]['title'], 'Known title')
+        # A stale local unresolved cache also renders the resolved record once.
+        stale = dict(index.papers[0], arxiv_id=None, title='')
+        index.papers = [stale]
+        self.assertEqual(len(index.library()), 1)
+        self.assertEqual(index.library()[0]['title'], 'Known title')
+        self.assertEqual(index.library()[0]['arxiv_id'], 'quant-ph/0501052v1')
+        self.assertEqual(index.library()[0]['status'], 'indexed')
+
     def test_rating_validation(self):
         catalog = Catalog(self.root)
         catalog.remember([paper('2302.13971')])

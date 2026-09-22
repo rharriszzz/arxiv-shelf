@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>arXiv Shelf</title><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script></head>
+<body>
+<header><a class="brand" href="/">arXiv <span>Shelf</span></a><span class="local">LOCAL LIBRARY</span></header>
+<main>
+<section class="intro"><div><div class="eyebrow">A LITTLE ORDER FOR BIG IDEAS</div><h1>Your papers, within reach.</h1><p>A searchable shelf for the arXiv PDFs you’ve collected.</p></div><button id="rescan" class="primary">↻ Rescan folder</button></section>
+<div class="summary"><strong id="count">Loading your library…</strong><span id="folder"></span></div>
+<section class="controls" aria-label="Search and filter papers"><label class="search"><span>Search your library</span><input id="search" type="search" placeholder="Title, author, filename, ID, or abstract…" autocomplete="off"></label><label><span>Show</span><select id="filter"><option value="all">All files</option><option value="indexed">With metadata</option><option value="attention">Needs attention</option></select></label><label><span>Sort by</span><select id="sort"><option value="published">Paper date</option><option value="title">Title</option><option value="authors">First author</option><option value="filename">Filename</option><option value="mtime">File modified</option></select></label><button id="direction" aria-label="Reverse sort direction" title="Reverse sort direction">↓</button></section>
+<div class="statusline"><span id="results" aria-live="polite"></span><span id="status" role="status"></span></div>
+<div id="error" role="alert" hidden></div>
+<div class="table-wrap"><table><thead><tr><th scope="col">PAPER / AUTHORS</th><th scope="col">LOCAL FILE</th><th scope="col">PUBLISHED</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead><tbody id="papers"></tbody></table></div>
+<div id="empty" hidden><h2>No papers found</h2><p>Try a different search or rescan your Downloads folder.</p></div>
+<footer>Files stay in your Downloads folder. Paper details are cached locally from arXiv.<span id="updated"></span></footer>
+</main></body></html>

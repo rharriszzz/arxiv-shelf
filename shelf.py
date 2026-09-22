@@ -1,0 +1,348 @@
+#!/usr/bin/env python3
+"""A local, dependency-free arXiv PDF shelf (Python 3.10+)."""
+import argparse
+import hashlib
+import json
+from pathlib import Path
+import re
+import secrets
+import shutil
+import subprocess
+import sys
+import threading
+import time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import urlencode, urlparse, unquote
+from urllib.request import Request, urlopen
+import xml.etree.ElementTree as ET
+
+ROOT = Path(__file__).resolve().parent
+MODERN = r'\d{4}\.\d{4,5}'
+LEGACY = r'[a-z][a-z.-]*(?:\.[A-Z]{2})?/\d{7}'
+ID_RE = re.compile(rf'arXiv\s*:\s*({MODERN}|{LEGACY})(v\d+)?', re.I)
+ATOM = '{http://www.w3.org/2005/Atom}'
+
+
+def filename_id(name):
+    """Return an ID (or ambiguous old number), accepting common download suffixes."""
+    if not name.lower().endswith('.pdf'):
+        return None
+    stem = re.sub(r'\s*\(\d+\)$', '', name[:-4])
+    stem = re.sub(r'^arxiv[ _:-]*', '', stem, flags=re.I)
+    match = re.fullmatch(rf'({MODERN}|\d{{7}}|[a-z][a-z.-]*[_-]\d{{7}})(v\d+)?', stem, re.I)
+    if not match:
+        return None
+    base, version = match.group(1), match.group(2) or ''
+    base = re.sub(r'[_-](\d{7})$', r'/\1', base)
+    number = base.rsplit('/', 1)[-1]
+    month = int(number[2:4])
+    if not 1 <= month <= 12:
+        return None
+    return base + version.lower()
+
+
+def first_page(path):
+    if not shutil.which('pdftotext'):
+        return ''
+    try:
+        result = subprocess.run(['pdftotext', '-f', '1', '-l', '1', str(path), '-'],
+                                capture_output=True, timeout=20)
+        return result.stdout.decode('utf-8', errors='replace')
+    except (OSError, subprocess.TimeoutExpired):
+        return ''
+
+
+def resolve_legacy(identifier, text):
+    number = re.sub(r'v\d+$', '', identifier).rsplit('/', 1)[-1]
+    for match in ID_RE.finditer(text):
+        if match.group(1).rsplit('/', 1)[-1] == number:
+            version = re.search(r'v\d+$', identifier)
+            return match.group(1) + (version.group() if version else '')
+    return None
+
+
+def parse_feed(data):
+    results = {}
+    for entry in ET.fromstring(data).findall(ATOM + 'entry'):
+        identifier = entry.findtext(ATOM + 'id', '').split('/abs/')[-1]
+        if not re.fullmatch(rf'(?:{MODERN}|{LEGACY})(?:v\d+)?', identifier, re.I):
+            continue
+        results[identifier] = {
+            'title': ' '.join(entry.findtext(ATOM + 'title', '').split()),
+            'authors': [' '.join(a.findtext(ATOM + 'name', '').split())
+                        for a in entry.findall(ATOM + 'author')],
+            'abstract': ' '.join(entry.findtext(ATOM + 'summary', '').split()),
+            'published': entry.findtext(ATOM + 'published', '')[:10],
+        }
+    return results
+
+
+def fetch_metadata(ids, title=None):
+    params = {'search_query': 'ti:"' + title.replace('"', '') + '"', 'max_results': 5} if title else {'id_list': ','.join(ids), 'max_results': len(ids)}
+    url = 'https://export.arxiv.org/api/query?' + urlencode(params)
+    request = Request(url, headers={'User-Agent': 'arxiv-shelf/1.0 (local personal PDF index)'})
+    with urlopen(request, timeout=35) as response:
+        return parse_feed(response.read())
+
+
+class Shelf:
+    def __init__(self, directory, cache, recursive=False, offline=False):
+        self.directory = directory.resolve()
+        self.cache = cache
+        self.recursive = recursive
+        self.offline = offline
+        self.lock = threading.Lock()
+        self.scanning = False
+        self.message = 'Ready to scan'
+        self.error = ''
+        self.papers = []
+        self.metadata = {}
+        self.last_scan = ''
+        try:
+            saved = json.loads(cache.read_text())
+            self.metadata = saved.get('metadata', {})
+            if saved.get('directory') == str(self.directory) and saved.get('recursive') == recursive:
+                self.papers = saved.get('papers', [])
+                self.last_scan = saved.get('last_scan', '')
+        except (OSError, ValueError):
+            pass
+
+    def snapshot(self):
+        with self.lock:
+            return {'papers': self.papers, 'directory': str(self.directory),
+                    'scanning': self.scanning, 'message': self.message,
+                    'error': self.error, 'last_scan': self.last_scan}
+
+    def start_scan(self):
+        with self.lock:
+            if self.scanning:
+                return False
+            self.scanning = True
+            self.error = ''
+        threading.Thread(target=self.scan, daemon=True).start()
+        return True
+
+    def save(self):
+        self.cache.parent.mkdir(parents=True, exist_ok=True)
+        temp = self.cache.with_suffix('.tmp')
+        temp.write_text(json.dumps({'directory': str(self.directory), 'recursive': self.recursive,
+                                    'papers': self.papers, 'metadata': self.metadata,
+                                    'last_scan': self.last_scan}, ensure_ascii=False, indent=2))
+        temp.replace(self.cache)
+
+    def scan(self):
+        try:
+            if not self.directory.is_dir():
+                raise ValueError(f'Directory does not exist: {self.directory}')
+            paths = self.directory.rglob('*') if self.recursive else self.directory.iterdir()
+            candidates = sorted(p for p in paths if p.is_file() and filename_id(p.name))
+            papers = []
+            old = {p['path']: p for p in self.papers}
+            for i, path in enumerate(candidates):
+                self.message = f'Inspecting PDF {i + 1} of {len(candidates)}'
+                # Never follow a symlink to a file outside the selected directory.
+                resolved = path.resolve()
+                if not resolved.is_relative_to(self.directory):
+                    continue
+                try:
+                    stat = path.stat()
+                    with path.open('rb') as handle:
+                        valid = b'%PDF-' in handle.read(1024)
+                except OSError:
+                    continue
+                identifier = filename_id(path.name)
+                text = ''
+                previous = old.get(str(resolved), {})
+                if re.fullmatch(r'\d{7}(v\d+)?', identifier) or '/' in identifier:
+                    if previous.get('mtime') == stat.st_mtime and previous.get('status') == 'indexed':
+                        identifier = previous['arxiv_id']
+                    else:
+                        text = first_page(path) if valid else ''
+                        identifier = resolve_legacy(identifier, text) or (identifier if '/' in identifier and len(identifier.split('/')[0]) < 20 else None)
+                paper = {'key': hashlib.sha256(str(resolved).encode()).hexdigest()[:24],
+                         'filename': path.name, 'path': str(resolved), 'arxiv_id': identifier,
+                         'mtime': stat.st_mtime, 'size': stat.st_size, 'valid_pdf': valid,
+                         'title': '', 'authors': [], 'abstract': '', 'published': '',
+                         'status': 'pending' if identifier else 'unresolved',
+                         'note': '' if identifier else 'Could not recover the legacy subject prefix from the PDF. Verify the full ID and rename the file to include it.',
+                         'excerpt': text[:4000]}
+                if not valid:
+                    paper['note'] = 'This file does not have a PDF header; it may be an incomplete or failed download.'
+                papers.append(paper)
+            # For unstamped older PDFs, search the opening title block, then require
+            # the returned legacy number to match the filename before accepting it.
+            if not self.offline:
+                for paper in papers:
+                    if paper['arxiv_id'] or not paper['excerpt']:
+                        continue
+                    title = ' '.join(paper['excerpt'].strip().split('\n\n')[0].split())
+                    if not 10 <= len(title) <= 300:
+                        continue
+                    self.message = f'Recovering legacy ID for {paper["filename"]}'
+                    try:
+                        found = fetch_metadata([], title=title)
+                        number = re.search(r'\d{7}', paper['filename']).group()
+                        for key, meta in found.items():
+                            if re.sub(r'v\d+$', '', key).rsplit('/', 1)[-1] == number:
+                                version = re.search(r'v\d+', paper['filename'])
+                                identifier = re.sub(r'v\d+$', '', key) + (version.group() if version else '')
+                                paper['arxiv_id'] = identifier
+                                paper['note'] = ''
+                                if not version or key == identifier:
+                                    self.metadata[identifier] = meta
+                                break
+                    except Exception:
+                        pass  # The normal lookup below reports network failures.
+                    time.sleep(3.1)
+            ids = list(dict.fromkeys(p['arxiv_id'] for p in papers if p['arxiv_id'] and p['arxiv_id'] not in self.metadata))
+            errors = []
+            for offset in range(0, len(ids), 25):
+                if self.offline:
+                    break
+                batch = ids[offset:offset + 25]
+                self.message = f'Fetching arXiv metadata: {offset + 1}–{min(offset + 25, len(ids))} of {len(ids)}'
+                if offset:
+                    time.sleep(3.1)
+                try:
+                    found = fetch_metadata(batch)
+                    for identifier in batch:
+                        meta = found.get(identifier)
+                        if not meta and not re.search(r'v\d+$', identifier):
+                            meta = next((m for key, m in found.items() if re.sub(r'v\d+$', '', key) == identifier), None)
+                        if meta:
+                            self.metadata[identifier] = meta
+                except Exception as exc:
+                    errors.append(f'arXiv lookup failed: {exc}')
+                    # Keep cached results and avoid hammering a failing service.
+                    break
+            for p in papers:
+                if p['arxiv_id'] in self.metadata:
+                    p.update(self.metadata[p['arxiv_id']])
+                    p['status'] = 'indexed'
+                elif p['arxiv_id']:
+                    p['status'] = 'unresolved'
+                    p['note'] = p['note'] or 'Metadata unavailable. Rescan with internet access to retry.'
+            with self.lock:
+                self.papers = papers
+                self.last_scan = time.strftime('%Y-%m-%d %H:%M:%S')
+                self.error = '; '.join(errors)
+                self.message = f'{len(papers)} files · {sum(p["status"] == "indexed" for p in papers)} with metadata'
+            self.save()
+        except Exception as exc:
+            self.error = str(exc)
+        finally:
+            self.scanning = False
+
+    def find_path(self, key):
+        with self.lock:
+            paper = next((p for p in self.papers if p['key'] == key), None)
+        if not paper:
+            raise ValueError('Paper is not in the index.')
+        path = Path(paper['path']).resolve()
+        if not path.is_relative_to(self.directory) or not path.is_file() or path.suffix.lower() != '.pdf':
+            raise ValueError('The PDF was moved or is no longer available. Rescan the folder.')
+        return path
+
+
+def open_pdf(path, app):
+    if sys.platform == 'darwin':
+        result = subprocess.run(['open', '-a', app, str(path)], capture_output=True, text=True, timeout=15)
+        if result.returncode:
+            raise ValueError(f'Could not open {app}. Check the installed app name and use --acrobat-app. {result.stderr.strip()}')
+    else:
+        raise ValueError('Acrobat launching currently supports macOS. Use the PDF preview link on other systems.')
+
+
+def make_handler(shelf, token, app):
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, *_):
+            pass
+
+        def send(self, status, data, content_type='application/json'):
+            if not isinstance(data, bytes):
+                data = json.dumps(data).encode()
+            self.send_response(status)
+            self.send_header('Content-Type', content_type)
+            self.send_header('Content-Length', str(len(data)))
+            self.send_header('Cache-Control', 'no-store')
+            self.send_header('X-Content-Type-Options', 'nosniff')
+            self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; object-src 'none'; frame-ancestors 'none'")
+            self.end_headers()
+            self.wfile.write(data)
+
+        def local_request(self):
+            return self.headers.get('Host') in {f'127.0.0.1:{self.server.server_port}', f'localhost:{self.server.server_port}'}
+
+        def do_GET(self):
+            if not self.local_request():
+                return self.send(403, {'error': 'Local access only'})
+            path = urlparse(self.path).path
+            if path == '/api/papers':
+                return self.send(200, {**shelf.snapshot(), 'token': token})
+            if path.startswith('/pdf/'):
+                try:
+                    return self.send(200, shelf.find_path(unquote(path[5:])).read_bytes(), 'application/pdf')
+                except (OSError, ValueError) as exc:
+                    return self.send(404, {'error': str(exc)})
+            assets = {'/': ('index.html', 'text/html; charset=utf-8'),
+                      '/app.js': ('app.js', 'text/javascript; charset=utf-8'),
+                      '/style.css': ('style.css', 'text/css; charset=utf-8')}
+            if path in assets:
+                file, mime = assets[path]
+                return self.send(200, (ROOT / 'web' / file).read_bytes(), mime)
+            self.send(404, {'error': 'Not found'})
+
+        def do_POST(self):
+            if not self.local_request() or self.headers.get('X-Shelf-Token') != token:
+                return self.send(403, {'error': 'Please reload the shelf and try again.'})
+            path = urlparse(self.path).path
+            if path == '/api/scan':
+                shelf.start_scan()
+                return self.send(202, {'ok': True})
+            if path.startswith('/api/open/'):
+                try:
+                    open_pdf(shelf.find_path(path[len('/api/open/'):]), app)
+                    return self.send(200, {'ok': True})
+                except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
+                    return self.send(400, {'error': str(exc)})
+            self.send(404, {'error': 'Not found'})
+    return Handler
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--directory', type=Path, default=Path.home() / 'Downloads')
+    parser.add_argument('--cache', type=Path, default=ROOT / '.shelf' / 'index.json')
+    parser.add_argument('--recursive', action='store_true', help='Include subfolders')
+    parser.add_argument('--offline', action='store_true', help='Use cached metadata without contacting arXiv')
+    parser.add_argument('--scan-only', action='store_true', help='Update the index and exit')
+    parser.add_argument('--port', type=int, default=8765)
+    parser.add_argument('--acrobat-app', default='Adobe Acrobat')
+    args = parser.parse_args()
+    shelf = Shelf(args.directory.expanduser(), args.cache.expanduser(), args.recursive, args.offline)
+    if args.scan_only:
+        shelf.scan()
+        print(shelf.message)
+        if shelf.error:
+            print(shelf.error, file=sys.stderr)
+            return 1
+        return 0
+    # Acrobat DC is the application folder name on some installations.
+    app = args.acrobat_app
+    if app == 'Adobe Acrobat' and Path('/Applications/Adobe Acrobat DC/Adobe Acrobat.app').exists():
+        app = '/Applications/Adobe Acrobat DC/Adobe Acrobat.app'
+    server = ThreadingHTTPServer(('127.0.0.1', args.port), make_handler(shelf, secrets.token_urlsafe(32), app))
+    shelf.start_scan()
+    print(f'arXiv Shelf: http://127.0.0.1:{server.server_port}', flush=True)
+    print('Press Ctrl-C to stop.', flush=True)
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.server_close()
+    return 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

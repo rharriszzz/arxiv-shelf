@@ -1,0 +1,94 @@
+{
+  "utc": "2026-09-22T19:38:48.292114+00:00",
+  "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.35",
+  "python": "3.10.12",
+  "openssl": "OpenSSL 3.0.2 15 Mar 2022",
+  "commit": "8daea1e85bbd28f9ee43ee461a131fe7fb0592a3",
+  "proxy_configured": {},
+  "cases": [
+    {
+      "label": "single",
+      "ids": [
+        "1512.03547v2"
+      ],
+      "utc": "2026-09-22T19:38:48.292850+00:00",
+      "url": "https://export.arxiv.org/api/query?id_list=1512.03547v2&max_results=1",
+      "http_status": 200,
+      "headers": {
+        "Content-Type": "application/atom+xml; charset=utf-8",
+        "Cache-Control": null,
+        "Via": "1.1 google, 1.1 varnish, 1.1 varnish, 1.1 varnish",
+        "Date": "Tue, 22 Sep 2026 19:38:46 GMT",
+        "X-Served-By": "cache-lga-kjfk8660034-LGA, cache-lga-kjfk8660034-LGA, cache-lga-kjfk8660026-LGA, cache-ewr-kewr1740074-EWR",
+        "X-Cache": "MISS, MISS, HIT",
+        "Retry-After": null
+      },
+      "outcome": "success",
+      "returned_ids": [
+        "1512.03547v2"
+      ],
+      "missing_ids": [],
+      "elapsed_seconds": 0.093
+    },
+    {
+      "label": "two-paper batch",
+      "ids": [
+        "1512.03547v2",
+        "1809.00533v6"
+      ],
+      "utc": "2026-09-22T19:38:49.435432+00:00",
+      "url": "https://export.arxiv.org/api/query?id_list=1512.03547v2%2C1809.00533v6&max_results=2",
+      "http_status": 200,
+      "headers": {
+        "Content-Type": "application/atom+xml; charset=utf-8",
+        "Cache-Control": null,
+        "Via": "1.1 google, 1.1 varnish, 1.1 varnish, 1.1 varnish",
+        "Date": "Tue, 22 Sep 2026 19:38:49 GMT",
+        "X-Served-By": "cache-lga-kjfk8660037-LGA, cache-lga-kjfk8660037-LGA, cache-lga-kjfk8660070-LGA, cache-ewr-kewr1740034-EWR",
+        "X-Cache": "MISS, MISS, HIT",
+        "Retry-After": null
+      },
+      "outcome": "success",
+      "returned_ids": [
+        "1512.03547v2",
+        "1809.00533v6"
+      ],
+      "missing_ids": [],
+      "elapsed_seconds": 0.072
+    },
+    {
+      "label": "six-paper batch",
+      "ids": [
+        "quant-ph/0501052v1",
+        "1512.03547v2",
+        "1809.00533v6",
+        "2308.15440v2",
+        "2412.16795v1",
+        "2502.03337v1"
+      ],
+      "utc": "2026-09-22T19:38:52.711051+00:00",
+      "url": "https://export.arxiv.org/api/query?id_list=quant-ph%2F0501052v1%2C1512.03547v2%2C1809.00533v6%2C2308.15440v2%2C2412.16795v1%2C2502.03337v1&max_results=6",
+      "http_status": 200,
+      "headers": {
+        "Content-Type": "application/atom+xml; charset=utf-8",
+        "Cache-Control": null,
+        "Via": "1.1 google, 1.1 varnish, 1.1 varnish, 1.1 varnish",
+        "Date": "Tue, 22 Sep 2026 19:38:52 GMT",
+        "X-Served-By": "cache-lga-kjfk8660020-LGA, cache-lga-kjfk8660020-LGA, cache-lga-kjfk8660070-LGA, cache-ewr-kewr1740044-EWR",
+        "X-Cache": "MISS, MISS, HIT",
+        "Retry-After": null
+      },
+      "outcome": "success",
+      "returned_ids": [
+        "1512.03547v2",
+        "1809.00533v6",
+        "2308.15440v2",
+        "2412.16795v1",
+        "2502.03337v1",
+        "quant-ph/0501052v1"
+      ],
+      "missing_ids": [],
+      "elapsed_seconds": 0.087
+    }
+  ]
+}

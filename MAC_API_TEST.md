@@ -126,3 +126,80 @@ behavior remain possible explanations.
 Next PC action: pull this result and repeat the same comparison, recording UTC
 time and outcomes. No individual-lookup fallback or request-code change was
 made on the Mac.
+
+## PC follow-up after pulling Mac results
+
+Pulled `8daea1e` on September 22, 2026. No application request changes were made.
+The shelf server was not running during these probes. Full reports are saved in
+`diagnostics/pc-2026-09-22-repeat.json` and
+`diagnostics/pc-2026-09-22-order.json`.
+
+| UTC (2026-09-22) | Request | HTTP | X-Cache |
+| --- | --- | --- | --- |
+| 19:38:48 | Original single | 200 | MISS, MISS, HIT |
+| 19:38:49 | Original two-paper batch | 200 | MISS, MISS, HIT |
+| 19:38:52 | Original six-paper batch | 200 | MISS, MISS, HIT |
+| 19:39:24 | Same two papers, reverse order | 406 | MISS, MISS |
+| 19:39:27 | Same six papers, reverse order | 406 | MISS, MISS |
+| 19:39:30 | Original two-paper control | 200 | MISS, MISS, HIT |
+
+Successful results contained every requested edition. Failing responses again
+had empty bodies and `Cache-Control: private, no-store`.
+
+This is evidence against a general batch-size problem or complete API recovery.
+Success correlates with a cache HIT, while equivalent requests with a different
+ordering fail on a MISS. The Mac may have populated shared caches for the original
+URLs, but we have not established that. Ordering-sensitive filtering, different
+network routes, and upstream/cache behavior remain competing explanations.
+The available headers cannot identify which component generated the 406.
+
+## Next tests requested on the Mac
+
+Use the reusable probe (no catalog writes) with the shelf stopped. It uses the
+actual `shelf.fetch_metadata` implementation, saves selected response headers on
+both success and failure, and waits 3.2 seconds after each completed request.
+It makes three requests per suite and stops on 403 or 429. Report files must not
+already exist. Proxy presence is recorded without proxy URLs or credentials.
+Record VPN status separately; this script does not detect every VPN.
+
+1. **Run the reverse-order suite on the Mac first.** This checks whether the
+   exact URLs that just failed on the PC succeed on the Mac:
+
+   ```sh
+   python3 diagnostics/arxiv_probe.py --suite order --output diagnostics/mac-order.json
+   ```
+
+2. **Record or share the result, then run that same suite on the PC.** Use a new
+   filename, such as `diagnostics/pc-after-mac-order.json`. If the reverse-order
+   requests change from 406/MISS to 200/HIT after Mac success, that strengthens
+   the shared-cache explanation. It does not prove that the Mac caused the
+   change; service recovery or other clients can also populate caches.
+
+3. **If an identical URL still differs between machines, compare clients on the
+   PC.** Take the exact two-paper URL from the saved report and request it once
+   using WSL curl, then Windows `curl.exe`, using the application's user agent:
+
+   ```sh
+   curl --max-time 35 -sS -D /tmp/arxiv-wsl-headers.txt -o /tmp/arxiv-wsl-body.xml \
+     -A 'arxiv-shelf/1.0 (local personal PDF index)' \
+     'https://export.arxiv.org/api/query?id_list=1809.00533v6%2C1512.03547v2&max_results=2'
+   ```
+
+   Run the equivalent command in Windows PowerShell with `curl.exe` and Windows
+   output paths. Wait at least 3.2 seconds between completed requests. Python
+   failure with both curl clients succeeding suggests a client/HTTP/TLS difference;
+   WSL clients failing while Windows succeeds suggests a WSL path difference.
+   Timing/cache changes still confound a one-off comparison, so retain timestamps
+   and headers. Do not change user agent, URL encoding, and client at once.
+
+4. **Only if failures persist, compare network conditions.** Run one suite on each
+   machine on the same network with VPN status recorded. If practical, separately
+   compare a different network while keeping machine/client unchanged. Stop if
+   explicit blocking or rate limiting is returned; do not rotate networks or
+   addresses to evade a block. A network-dependent result would support a
+   route/egress-related explanation, not establish a Windows defect.
+
+Do not add individual-request fallback yet: earlier singles sometimes failed,
+and cache hits could make that workaround look reliable when it is not. Do not
+add random query parameters, rapid retries, or cache-busting loops. The fixed
+reverse-order suite provides a small, reproducible comparison.

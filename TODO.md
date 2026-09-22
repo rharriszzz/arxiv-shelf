@@ -5,7 +5,7 @@ Windows/WSL Downloads detection, Acrobat opening with a default-app fallback, br
 Remaining checks:
 
 - Poppler is installed and verified in WSL; `0501052v1.pdf` resolves to `quant-ph/0501052v1`.
-- Run the Mac comparison requested in [MAC_API_TEST.md](MAC_API_TEST.md) before choosing a metadata-request workaround.
+- Mac baseline passed; PC baseline now passes with cache hits, but reverse-order batches fail with 406/cache misses. Run the next Mac reverse-order comparison in [MAC_API_TEST.md](MAC_API_TEST.md) before choosing a workaround.
 - Verify the native Windows Python path on a machine with native Python installed; this PC uses WSL Python.
 - Visually check search, sorting, ratings, and the double-click launcher in the Windows browser.
 

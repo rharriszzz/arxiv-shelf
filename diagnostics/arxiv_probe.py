@@ -29,8 +29,8 @@ HEADERS = ('Content-Type', 'Cache-Control', 'Via', 'Date', 'X-Served-By',
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--suite', choices=('baseline', 'order'), default='baseline',
-                        help='Order suite requests the same batches reversed, then repeats the known baseline pair')
+    parser.add_argument('--suite', choices=('baseline', 'order', 'runtime'), default='baseline',
+                        help='Baseline/order batch comparisons, or one fixed request for runtime comparison')
     parser.add_argument('--output', type=Path, required=True, help='New JSON report path; existing files are never overwritten')
     args = parser.parse_args()
     if args.output.exists():
@@ -49,6 +49,8 @@ def main():
         ('reversed six-paper batch', list(reversed(CASES[2][1]))),
         ('original two-paper control', CASES[1][1]),
     ]
+    if args.suite == 'runtime':
+        cases = [('runtime comparison', ['2412.16795v1', '2308.15440v2'])]
     original_urlopen = shelf.urlopen
     for i, (label, ids) in enumerate(cases):
         if i:

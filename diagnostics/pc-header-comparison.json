@@ -1,0 +1,60 @@
+{
+  "url": "https://export.arxiv.org/api/query?id_list=2412.16795v1%2C2308.15440v2&max_results=2",
+  "cases": [
+    {
+      "label": "baseline",
+      "extra_headers": {},
+      "utc": "2026-09-22T19:46:37.403311+00:00",
+      "http_status": 406,
+      "headers": {
+        "Content-Type": null,
+        "Cache-Control": "private, no-store",
+        "Via": "1.1 varnish, 1.1 varnish",
+        "Date": "Tue, 22 Sep 2026 19:46:36 GMT",
+        "X-Served-By": "cache-lga-kjfk8660034-LGA, cache-lga-kjfk8660034-LGA, cache-ewr-kewr1740061-EWR",
+        "X-Cache": "MISS, MISS",
+        "Retry-After": null,
+        "Content-Encoding": null
+      },
+      "body_empty": true
+    },
+    {
+      "label": "accept-any",
+      "extra_headers": {
+        "Accept": "*/*"
+      },
+      "utc": "2026-09-22T19:46:40.783986+00:00",
+      "http_status": 406,
+      "headers": {
+        "Content-Type": null,
+        "Cache-Control": "private, no-store",
+        "Via": "1.1 varnish, 1.1 varnish",
+        "Date": "Tue, 22 Sep 2026 19:46:39 GMT",
+        "X-Served-By": "cache-lga-kjfk8660034-LGA, cache-lga-kjfk8660034-LGA, cache-ewr-kewr1740077-EWR",
+        "X-Cache": "MISS, MISS",
+        "Retry-After": null,
+        "Content-Encoding": null
+      },
+      "body_empty": true
+    },
+    {
+      "label": "accept-gzip",
+      "extra_headers": {
+        "Accept-Encoding": "gzip"
+      },
+      "utc": "2026-09-22T19:46:44.165839+00:00",
+      "http_status": 406,
+      "headers": {
+        "Content-Type": null,
+        "Cache-Control": "private, no-store",
+        "Via": "1.1 varnish, 1.1 varnish",
+        "Date": "Tue, 22 Sep 2026 19:46:42 GMT",
+        "X-Served-By": "cache-lga-kjfk8660039-LGA, cache-lga-kjfk8660034-LGA, cache-nyc-kteb1890092-NYC",
+        "X-Cache": "MISS, MISS",
+        "Retry-After": null,
+        "Content-Encoding": null
+      },
+      "body_empty": true
+    }
+  ]
+}

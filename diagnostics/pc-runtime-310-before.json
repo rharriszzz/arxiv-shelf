@@ -1,0 +1,33 @@
+{
+  "utc": "2026-09-22T19:49:34.537583+00:00",
+  "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.35",
+  "python": "3.10.12",
+  "openssl": "OpenSSL 3.0.2 15 Mar 2022",
+  "commit": "70cff858db6e93ba01fb9e3fd5d26a71f7f8e4a7",
+  "proxy_configured": {},
+  "cases": [
+    {
+      "label": "runtime comparison",
+      "ids": [
+        "2412.16795v1",
+        "2308.15440v2"
+      ],
+      "utc": "2026-09-22T19:49:34.538340+00:00",
+      "url": "https://export.arxiv.org/api/query?id_list=2412.16795v1%2C2308.15440v2&max_results=2",
+      "headers": {
+        "Content-Type": null,
+        "Cache-Control": "private, no-store",
+        "Via": "1.1 varnish, 1.1 varnish",
+        "Date": "Tue, 22 Sep 2026 19:49:33 GMT",
+        "X-Served-By": "cache-lga-kjfk8660034-LGA, cache-lga-kjfk8660034-LGA, cache-ewr-kewr1740035-EWR",
+        "X-Cache": "MISS, MISS",
+        "Retry-After": null
+      },
+      "outcome": "http_error",
+      "http_status": 406,
+      "body_empty": true,
+      "elapsed_seconds": 0.084
+    }
+  ],
+  "suite": "runtime"
+}

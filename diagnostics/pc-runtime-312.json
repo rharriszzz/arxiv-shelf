@@ -1,0 +1,37 @@
+{
+  "utc": "2026-09-22T19:49:49.935097+00:00",
+  "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.35",
+  "python": "3.12.14",
+  "openssl": "OpenSSL 3.5.8 25 Aug 2026",
+  "commit": "70cff858db6e93ba01fb9e3fd5d26a71f7f8e4a7",
+  "proxy_configured": {},
+  "cases": [
+    {
+      "label": "runtime comparison",
+      "ids": [
+        "2412.16795v1",
+        "2308.15440v2"
+      ],
+      "utc": "2026-09-22T19:49:49.935906+00:00",
+      "url": "https://export.arxiv.org/api/query?id_list=2412.16795v1%2C2308.15440v2&max_results=2",
+      "http_status": 200,
+      "headers": {
+        "Content-Type": "application/atom+xml; charset=utf-8",
+        "Cache-Control": null,
+        "Via": "1.1 google, 1.1 varnish, 1.1 varnish, 1.1 varnish",
+        "Date": "Tue, 22 Sep 2026 19:49:48 GMT",
+        "X-Served-By": "cache-lga-kjfk8660034-LGA, cache-lga-kjfk8660034-LGA, cache-lga-kjfk8660034-LGA, cache-ewr-kewr1740026-EWR",
+        "X-Cache": "MISS, MISS, MISS",
+        "Retry-After": null
+      },
+      "outcome": "success",
+      "returned_ids": [
+        "2308.15440v2",
+        "2412.16795v1"
+      ],
+      "missing_ids": [],
+      "elapsed_seconds": 0.202
+    }
+  ],
+  "suite": "runtime"
+}

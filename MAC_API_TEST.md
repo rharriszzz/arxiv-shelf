@@ -240,3 +240,155 @@ reversed URLs now return 200/HIT on the PC, that strengthens (but does not prove
 the shared-cache explanation. If identical URLs still fail there, follow the
 bounded WSL curl versus Windows curl comparison above. No application request
 changes or fallback were added, and the probe made no catalog writes.
+
+## PC results after Mac reverse-order test — September 22, 2026
+
+Pulled `70cff85`. With no shelf server running, the unchanged order suite at
+19:45:03–19:45:10 UTC returned 200 for all three requests, all with
+`X-Cache: MISS, MISS, HIT` and no missing editions. See
+`diagnostics/pc-after-mac-order.json`. This repeats the pattern: PC misses fail,
+Mac requests succeed, then PC hits succeed. It strengthens the cache explanation
+without establishing causation or a universal recovery.
+
+### Client comparison on this PC
+
+Used one previously untested fixed pair, `2308.15440v2,2412.16795v1`, with
+identical URL and application user agent. Both curl clients used HTTP/1.1 to
+match urllib's HTTP version. Requests were sequential, spaced by 3.2 seconds
+after completion. See `diagnostics/pc-client-comparison.json`.
+
+| UTC | Client | HTTP | X-Cache |
+| --- | --- | --- | --- |
+| 19:45:53 | WSL Python urllib | 406 | MISS, MISS |
+| 19:45:56 | WSL curl 7.81.0 / OpenSSL 3.0.2 | 200 | MISS, MISS, MISS |
+| 19:45:59 | Windows curl 8.21.0 / Schannel | 200 | MISS, MISS, HIT |
+| 19:46:03 | Same WSL Python urllib again | 200 | MISS, MISS, HIT |
+
+Both Python and WSL curl use OpenSSL 3.0.2 on this PC. The Mac is not necessary
+for a successful cache-miss request: WSL curl succeeded. This focuses attention
+on client/request/TLS differences and handling of uncached requests, rather
+than a blanket WSL or Windows network failure. Windows curl's success was a
+cache hit, so it does not establish its behavior on misses.
+
+### Header comparison
+
+Used the reverse of that pair, fixed throughout this comparison. See
+`diagnostics/pc-header-comparison.json`.
+
+| UTC | Python request change | HTTP | X-Cache |
+| --- | --- | --- | --- |
+| 19:46:37 | None (baseline) | 406 | MISS, MISS |
+| 19:46:40 | Add `Accept: */*` | 406 | MISS, MISS |
+| 19:46:44 | Add `Accept-Encoding: gzip` instead | 406 | MISS, MISS |
+
+Neither individual header change fixes this case. This does not test every
+combination or establish TLS as the cause. All failures had empty response
+bodies. No application transport or fallback has been changed.
+
+The exact comparison scripts are preserved for reproducibility (output paths
+must be new; run from the repository with the shelf stopped):
+
+```sh
+python3 diagnostics/client_comparison.py --output diagnostics/pc-clients-repeat.json
+python3 diagnostics/header_comparison.py --output diagnostics/pc-headers-repeat.json
+```
+
+Run these separately with at least 3.2 seconds between suites. The client script
+requires both `curl` and Windows `curl.exe` and is intended for this WSL PC.
+Each script stops on 403 or 429. Repeating already successful URLs may only test
+cache hits and cannot resolve the remaining cause.
+
+### Next focused investigation
+
+1. Compare Python 3.10 on this PC with a newer Python runtime on the same PC,
+   using identical request code, URL, and headers. Record TLS library versions.
+   This addresses the runtime difference from the Mac's Python 3.12.3 without
+   conflating it with geography or operating system. A cache-hit-only outcome
+   is inconclusive.
+2. If necessary, compare the HTTP headers actually sent by urllib and curl to a
+   local capture server (no external requests). Then test only identified
+   differences, keeping HTTP version and user agent fixed. TLS negotiation and
+   connection handling remain separate variables.
+3. If curl repeatedly succeeds on misses while urllib fails, consider an
+   optional, rate-limited curl transport rather than single-paper fallback.
+   Validate Atom parsing, timeout/error handling, dependency detection, and the
+   existing request protections before adopting it. Do not implement it based
+   only on successes served from cache.
+
+We have not proved which arXiv/CDN component issues 406. A support report can
+now include the exact URLs, UTC timestamps, client versions, selected response
+headers, and the Python-fail / curl-success / Python-hit sequence without IP
+addresses or credentials.
+
+## Python 3.12 comparison and PC configuration — September 22, 2026
+
+Found an existing Python 3.12 installation at `~/.local/bin/python3.12` (uv-managed
+CPython 3.12.14 with OpenSSL 3.5.8). The system `/usr/bin/python3` is CPython
+3.10.12 with OpenSSL 3.0.2. No interpreter installation was needed, and neither
+the system interpreter nor the other project's environment was modified.
+
+Used the exact URL from the previously failing header comparison, with unchanged
+application request code. The new `runtime` suite makes that one fixed request:
+
+```sh
+python3 diagnostics/arxiv_probe.py --suite runtime --output diagnostics/pc-runtime-310-before.json
+python3.12 diagnostics/arxiv_probe.py --suite runtime --output diagnostics/pc-runtime-312.json
+python3 diagnostics/arxiv_probe.py --suite runtime --output diagnostics/pc-runtime-310-after.json
+```
+
+These are the commands already run, not a repeat instruction: the report files
+exist. Calls were separated by more than three seconds.
+
+| UTC | Runtime | HTTP | X-Cache |
+| --- | --- | --- | --- |
+| 19:49:34 | Python 3.10.12 / OpenSSL 3.0.2 | 406 | MISS, MISS |
+| 19:49:49 | Python 3.12.14 / OpenSSL 3.5.8 | 200 | MISS, MISS, MISS |
+| 19:50:23 | Python 3.10.12 / OpenSSL 3.0.2 again | 200 | MISS, MISS, HIT |
+
+Both successful responses returned the two requested editions. This directly
+supports using the existing 3.12 runtime on this PC. It does not isolate Python
+version from TLS library/configuration changes, or conclusively identify the
+server component rejecting the older runtime's uncached request.
+
+The PC launchers now select Python 3.12 and `.python-version` pins 3.12. The WSL
+launcher also checks `~/.local/bin/python3.12` because Windows-launched WSL may
+not load the shell profile. This fallback was checked with a restricted PATH.
+Native Windows launching selects `py -3.12` or verifies that `python` is 3.12.
+No curl fallback or API request-header changes were added to the application.
+
+Validation: all 22 tests pass on Python 3.12; JavaScript and shell syntax checks
+pass. A live `python3.12 shelf.py --scan-only` completed successfully with
+**6 local files, all 6 with metadata** and no lookup error. This scan persisted
+the metadata in the local cache and portable catalog. The scan's successful
+URLs may already be cached upstream; the runtime probe above provides the
+separate successful cache-miss observation.
+
+## Final Mac verification request
+
+The PC now works with Python 3.12. No further repeated 406 probes are needed
+unless the error returns. Please do these compatibility checks after pulling:
+
+1. Confirm which interpreter the Finder launcher actually uses. The existing
+   `Start arXiv Shelf.command` still invokes `python3`; `.python-version` alone
+   does not make every shell select 3.12. Record its executable, Python version,
+   and OpenSSL version. If Finder selects an older interpreter, update the Mac
+   launcher to use the installed Python 3.12, using a path appropriate to that
+   Mac, and verify launching from Finder.
+2. Run the existing unit tests under Python 3.12:
+
+   ```sh
+   python3.12 -m unittest discover -s tests -v
+   ```
+
+3. Open the shelf with the Mac launcher. Verify the six PC editions now have
+   titles/authors from the synced catalog (search by these IDs):
+   `quant-ph/0501052v1`, `1512.03547v2`, `1809.00533v6`, `2308.15440v2`,
+   `2412.16795v1`, and `2502.03337v1`. Availability should reflect the Mac's own
+   PDFs; missing editions should still retain their metadata.
+4. Open one existing local PDF in Acrobat and check browser preview. Do not
+   download missing papers or change ratings just to perform this check.
+
+Record the tested commit, interpreter details, unit-test outcome, and launcher,
+catalog, and PDF-opening results here. No system Python replacement or other
+project environment changes are requested. If a lookup fails again, capture one
+bounded diagnostic report with the existing probe, rather than running loops.

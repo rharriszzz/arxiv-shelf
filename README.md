@@ -10,13 +10,15 @@ Double-click `Start arXiv Shelf.bat` in this folder in Windows Explorer, or run:
 ./"Start arXiv Shelf.sh"
 ```
 
-The launcher uses WSL's installed Python and opens **http://127.0.0.1:8765** in your Windows browser. Keep the terminal open while using the shelf; press Ctrl-C to stop. Windows Downloads is detected automatically, including redirected folders. On this PC it is `/mnt/c/Users/rharr/Downloads`. Use `--directory PATH` to select another folder.
+The launcher uses WSL's installed Python 3.12 and opens **http://127.0.0.1:8765** in your Windows browser. Keep the terminal open while using the shelf; press Ctrl-C to stop. Windows Downloads is detected automatically, including redirected folders. On this PC it is `/mnt/c/Users/rharr/Downloads`. Use `--directory PATH` to select another folder.
 
 **Open PDF** opens Windows Acrobat when installed, otherwise your default Windows PDF application. `--acrobat-app 'C:\path\to\Acrobat.exe'` overrides the executable. Browser preview also works.
 
+This PC has Python 3.12 at `~/.local/bin/python3.12`; the launcher also finds it when Windows starts WSL without loading a shell profile. The project pins `3.12` in `.python-version`. Direct runs on this PC should use `python3.12 shelf.py`. Its system `python3` is 3.10 and returned HTTP 406 on uncached arXiv requests; the same request succeeded with the installed 3.12 runtime. See [the diagnostic results](MAC_API_TEST.md) for evidence and limitations.
+
 For legacy numeric filenames, install the optional extractor inside WSL with `sudo apt install poppler-utils`. Without it, those papers may need their full arXiv ID added to the filename.
 
-For a native Windows checkout, install Python 3.10 or newer and double-click the same `.bat` launcher, or run `py -3 shelf.py --open-browser`. No Python packages are required. A native Windows installation of Poppler can provide `pdftotext.exe` on PATH for legacy IDs.
+For a native Windows checkout, install Python 3.12 and double-click the same `.bat` launcher, or run `py -3.12 shelf.py --open-browser`. No Python packages are required. A native Windows installation of Poppler can provide `pdftotext.exe` on PATH for legacy IDs.
 
 ## Run on macOS
 

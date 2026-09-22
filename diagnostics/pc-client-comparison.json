@@ -1,0 +1,82 @@
+{
+  "url": "https://export.arxiv.org/api/query?id_list=2308.15440v2%2C2412.16795v1&max_results=2",
+  "user_agent": "arxiv-shelf/1.0 (local personal PDF index)",
+  "cases": [
+    {
+      "client": "python",
+      "utc": "2026-09-22T19:45:53.155595+00:00",
+      "http_status": 406,
+      "headers": {
+        "Content-Type": null,
+        "Cache-Control": "private, no-store",
+        "Via": "1.1 varnish, 1.1 varnish",
+        "Date": "Tue, 22 Sep 2026 19:45:53 GMT",
+        "X-Served-By": "cache-lga-kjfk8660062-LGA, cache-lga-kjfk8660053-LGA, cache-ewr-kewr1740095-EWR",
+        "X-Cache": "MISS, MISS",
+        "Retry-After": null
+      },
+      "body_empty": true
+    },
+    {
+      "client": "wsl-curl",
+      "utc": "2026-09-22T19:45:56.473897+00:00",
+      "version": "curl 7.81.0 (x86_64-pc-linux-gnu) libcurl/7.81.0 OpenSSL/3.0.2 zlib/1.2.11 brotli/1.0.9 zstd/1.4.8 libidn2/2.3.2 libpsl/0.21.0 (+libidn2/2.3.2) libssh/0.9.6/openssl/zlib nghttp2/1.43.0 librtmp/2.3 OpenLDAP/2.5.20",
+      "http_status": 200,
+      "headers": {
+        "Content-Type": "application/atom+xml; charset=utf-8",
+        "Cache-Control": null,
+        "Via": "1.1 google, 1.1 varnish, 1.1 varnish, 1.1 varnish",
+        "Date": "Tue, 22 Sep 2026 19:45:56 GMT",
+        "X-Served-By": "cache-lga-kjfk8660020-LGA, cache-lga-kjfk8660020-LGA, cache-lga-kjfk8660053-LGA, cache-ewr-kewr1740050-EWR",
+        "X-Cache": "MISS, MISS, MISS",
+        "Retry-After": null
+      },
+      "exit_code": 0,
+      "body_empty": false,
+      "returned_ids": [
+        "2308.15440v2",
+        "2412.16795v1"
+      ]
+    },
+    {
+      "client": "windows-curl",
+      "utc": "2026-09-22T19:45:59.938316+00:00",
+      "version": "curl 8.21.0 (Windows) libcurl/8.21.0 Schannel zlib/1.3.2 WinIDN WinLDAP",
+      "http_status": 200,
+      "headers": {
+        "Content-Type": "application/atom+xml; charset=utf-8",
+        "Cache-Control": null,
+        "Via": "1.1 google, 1.1 varnish, 1.1 varnish, 1.1 varnish",
+        "Date": "Tue, 22 Sep 2026 19:45:59 GMT",
+        "X-Served-By": "cache-lga-kjfk8660020-LGA, cache-lga-kjfk8660020-LGA, cache-lga-kjfk8660053-LGA, cache-ewr-kewr1740032-EWR",
+        "X-Cache": "MISS, MISS, HIT",
+        "Retry-After": null
+      },
+      "exit_code": 0,
+      "body_empty": false,
+      "returned_ids": [
+        "2308.15440v2",
+        "2412.16795v1"
+      ]
+    },
+    {
+      "client": "python-after-curl",
+      "utc": "2026-09-22T19:46:03.482490+00:00",
+      "http_status": 200,
+      "headers": {
+        "Content-Type": "application/atom+xml; charset=utf-8",
+        "Cache-Control": null,
+        "Via": "1.1 google, 1.1 varnish, 1.1 varnish, 1.1 varnish",
+        "Date": "Tue, 22 Sep 2026 19:46:02 GMT",
+        "X-Served-By": "cache-lga-kjfk8660020-LGA, cache-lga-kjfk8660020-LGA, cache-lga-kjfk8660053-LGA, cache-ewr-kewr1740055-EWR",
+        "X-Cache": "MISS, MISS, HIT",
+        "Retry-After": null
+      },
+      "body_empty": false,
+      "returned_ids": [
+        "2308.15440v2",
+        "2412.16795v1"
+      ]
+    }
+  ]
+}

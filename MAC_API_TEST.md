@@ -82,4 +82,47 @@ individual lookups with the required delay; that workaround has not been added.
 
 ## Mac results
 
-Pending. Please append the results and conclusion after running the test.
+Tested commit: `0dc8f46aaaa500625e95fe2a0dd096a6bf907e35`.
+
+The shelf server was stopped before running the exact comparison above. These
+were live calls through `shelf.fetch_metadata`, not cached catalog reads. Requests
+were sequential with the specified 3.2-second pauses. The comparison itself did
+not modify the catalog.
+
+Network checks: no HTTP_PROXY, HTTPS_PROXY, ALL_PROXY (or lowercase equivalents)
+environment variables were set. `scutil --proxy` reported no enable flags, and
+`scutil --nc list` reported zero connected VPN configurations. A third-party VPN
+or transparent network proxy has not been independently ruled out; no IP
+addresses or credentials were collected in this report.
+
+```text
+UTC: 2026-09-22T19:34:16.272259+00:00
+Platform: macOS-26.6.2-arm64-arm-64bit Python: 3.12.3
+
+CASE: single ['1512.03547v2']
+SUCCESS: 1 records
+1512.03547v2 Graph Isomorphism in Quasipolynomial Time
+
+CASE: two-paper batch ['1512.03547v2', '1809.00533v6']
+SUCCESS: 2 records
+1809.00533v6 A detailed proof of the Chudnovsky formula with means of basic complex analysis -- Ein ausführlicher Beweis der Chudnovsky-Formel mit elementarer Funktionentheorie
+1512.03547v2 Graph Isomorphism in Quasipolynomial Time
+
+CASE: six-paper batch ['quant-ph/0501052v1', '1512.03547v2', '1809.00533v6', '2308.15440v2', '2412.16795v1', '2502.03337v1']
+SUCCESS: 6 records
+1809.00533v6 A detailed proof of the Chudnovsky formula with means of basic complex analysis -- Ein ausführlicher Beweis der Chudnovsky-Formel mit elementarer Funktionentheorie
+1512.03547v2 Graph Isomorphism in Quasipolynomial Time
+2412.16795v1 Introduction to Black Hole Thermodynamics
+quant-ph/0501052v1 Introduction to PT-Symmetric Quantum Theory
+2308.15440v2 Detecting single gravitons with quantum sensing
+2502.03337v1 Corrections to Kerr-Newman black hole from Noncommutative Einstein-Maxwell equation
+```
+
+Conclusion: all three requests succeeded on this Mac at the recorded time. The
+PC failures at 19:27–19:29 UTC were not reproduced here at 19:34 UTC. This does
+not establish an operating-system difference: timing, networking, and API edge
+behavior remain possible explanations.
+
+Next PC action: pull this result and repeat the same comparison, recording UTC
+time and outcomes. No individual-lookup fallback or request-code change was
+made on the Mac.

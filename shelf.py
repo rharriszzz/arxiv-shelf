@@ -7,6 +7,7 @@ import os
 import tempfile
 from catalog import Catalog, paper_key
 from sync import git_sync
+from desktop import default_directory, open_pdf, open_browser
 from pathlib import Path
 import re
 import secrets
@@ -372,15 +373,6 @@ class Shelf:
         return path
 
 
-def open_pdf(path, app):
-    if sys.platform == 'darwin':
-        result = subprocess.run(['open', '-a', app, str(path)], capture_output=True, text=True, timeout=15)
-        if result.returncode:
-            raise ValueError(f'Could not open {app}. Check the installed app name and use --acrobat-app. {result.stderr.strip()}')
-    else:
-        raise ValueError('Acrobat launching currently supports macOS. Use the PDF preview link on other systems.')
-
-
 def make_handler(shelf, token, app):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_):
@@ -461,7 +453,7 @@ def make_handler(shelf, token, app):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--directory', type=Path, default=Path.home() / 'Downloads')
+    parser.add_argument('--directory', type=Path, default=None)
     parser.add_argument('--cache', type=Path, default=ROOT / '.shelf' / 'index.json')
     parser.add_argument('--catalog', type=Path, default=ROOT / 'catalog', help='Portable catalog folder (default: catalog/ in this Git repository)')
     parser.add_argument('--recursive', action='store_true', help='Include subfolders')
@@ -469,7 +461,13 @@ def main():
     parser.add_argument('--scan-only', action='store_true', help='Update the index and exit')
     parser.add_argument('--port', type=int, default=8765)
     parser.add_argument('--acrobat-app', default='Adobe Acrobat')
+    parser.add_argument('--open-browser', action='store_true', help='Open the shelf in your desktop browser')
     args = parser.parse_args()
+    if args.directory is None:
+        try:
+            args.directory = default_directory()
+        except ValueError as exc:
+            parser.error(str(exc))
     shelf = Shelf(args.directory.expanduser(), args.cache.expanduser(), args.recursive, args.offline, args.catalog)
     if args.scan_only:
         shelf.scan()
@@ -486,6 +484,11 @@ def main():
     shelf.start_scan()
     print(f'arXiv Shelf: http://127.0.0.1:{server.server_port}', flush=True)
     print('Press Ctrl-C to stop.', flush=True)
+    if args.open_browser:
+        try:
+            open_browser(f'http://127.0.0.1:{server.server_port}')
+        except (OSError, ValueError, subprocess.SubprocessError) as exc:
+            print(f'Open the URL above manually: {exc}', file=sys.stderr)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

@@ -51,7 +51,7 @@ function render() {
     file.title = p.path;
     if (p.status !== 'indexed' || !p.valid_pdf) file.append(el('span', 'badge', !p.valid_pdf ? 'Check download' : 'Needs metadata'));
     date.textContent = p.published || '—';
-    const open = el('button', 'open', p.available ? 'Open in Acrobat ↗' : '↓ Download PDF');
+    const open = el('button', 'open', p.available ? 'Open PDF ↗' : '↓ Download PDF');
     open.disabled = !p.available && !p.arxiv_id;
     open.addEventListener('click', () => p.available ? openPaper(p, open) : downloadPaper(p, open));
     const preview = el('a', 'preview', 'Browser preview'); preview.href = '/pdf/' + p.key; preview.target = '_blank'; preview.rel = 'noopener';

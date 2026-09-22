@@ -1,6 +1,22 @@
 # arXiv Shelf
 
-A local, searchable index of arXiv PDFs in your Downloads folder. See paper titles, all authors, filenames and publication dates; search across those fields and abstracts; sort the library; and click a title or **Open in Acrobat** to read the local PDF.
+A local, searchable index of arXiv PDFs in your Downloads folder. See paper titles, all authors, filenames and publication dates; search across those fields and abstracts; sort the library; and click a title or **Open PDF** to read the local PDF.
+
+## Run on this Windows PC (WSL)
+
+Double-click `Start arXiv Shelf.bat` in this folder in Windows Explorer, or run:
+
+```sh
+./"Start arXiv Shelf.sh"
+```
+
+The launcher uses WSL's installed Python and opens **http://127.0.0.1:8765** in your Windows browser. Keep the terminal open while using the shelf; press Ctrl-C to stop. Windows Downloads is detected automatically, including redirected folders. On this PC it is `/mnt/c/Users/rharr/Downloads`. Use `--directory PATH` to select another folder.
+
+**Open PDF** opens Windows Acrobat when installed, otherwise your default Windows PDF application. `--acrobat-app 'C:\path\to\Acrobat.exe'` overrides the executable. Browser preview also works.
+
+For legacy numeric filenames, install the optional extractor inside WSL with `sudo apt install poppler-utils`. Without it, those papers may need their full arXiv ID added to the filename.
+
+For a native Windows checkout, install Python 3.10 or newer and double-click the same `.bat` launcher, or run `py -3 shelf.py --open-browser`. No Python packages are required. A native Windows installation of Poppler can provide `pdftotext.exe` on PATH for legacy IDs.
 
 ## Run on macOS
 
@@ -39,7 +55,7 @@ Filename matching recognizes modern IDs, optional versions, browser duplicate su
 
 Accurate titles, authors, dates and abstracts come from the [arXiv Atom API](https://info.arxiv.org/help/api/user-manual.html), using batches of 25 IDs spaced at least three seconds apart. Versioned filenames request that specific version; unversioned filenames use the current arXiv metadata. PDFs are never uploaded, modified, moved or deleted. Paper identifiers, and occasionally the opening title block for an unresolved legacy PDF, are sent to arXiv.
 
-Metadata and local paths are saved under `.shelf/`, which is ignored by Git. The server listens only on `127.0.0.1`; opening PDFs requires a session token and a file already in the index. Acrobat is launched directly via macOS `open`, so the browser's default PDF viewer does not need to change. **Browser preview** is also available. Acrobat launching is macOS-specific; indexing and browser preview work on other systems if Python is available.
+Metadata and local paths are saved under `.shelf/`, which is ignored by Git. The server listens only on `127.0.0.1`; opening PDFs requires a session token and a file already in the index. PDFs open through macOS `open`, Windows Acrobat (with a default-app fallback), or Linux `xdg-open`. WSL converts local paths before asking Windows to open them. **Browser preview** is also available.
 
 Unavailable metadata stays visible with a **Needs metadata** label and is retried on rescan. For an old PDF without an arXiv stamp, the app also tries a title search using the opening text block and accepts a result only if its legacy number matches the filename. If neither method succeeds, it stays unresolved. Rename it to its full ID, e.g. `hep-th_0401056.pdf`, once you have verified the prefix. A PDF-header check flags obvious failed downloads, but is not a full integrity check: Acrobat may still report damage in a file whose header is valid.
 
@@ -60,7 +76,7 @@ The portable **catalog/** folder is now stored in this Git repository. It rememb
 
 Use **Sync with GitHub** before switching computers, and again after opening the shelf on the other computer. Sync commits only catalog changes, pulls the other computer's updates, then pushes your changes. It needs Git and working authentication for `origin` on each computer. It reports authentication/network errors without discarding your local catalog. If you have uncommitted application code changes, commit or stash them in your terminal first. If a pull updates application code, restart the app to load that code.
 
-On the PC, clone this repository (or pull the latest changes in an existing checkout), then run `python shelf.py` or `py shelf.py`. The catalog comes with the repository; `.shelf/` stays local and is not shared. Windows-specific Acrobat launching and a double-click launcher remain on the PC follow-up list in TODO.md. Browser preview can be used in the meantime.
+On the PC, clone this repository (or pull the latest changes in an existing checkout), then run `python shelf.py` or `py shelf.py`. The catalog comes with the repository; `.shelf/` stays local and is not shared. Windows and WSL support Downloads detection, Acrobat opening, and the double-click launcher described above.
 
 Each entry has a **Not rated / 1–5 stars** selector. Ratings save immediately on this computer and travel to the other one at the next GitHub sync. Choose **Rating** in the sort menu, or **Rated papers** in the filter.
 

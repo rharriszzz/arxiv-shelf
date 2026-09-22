@@ -1,0 +1,42 @@
+{
+  "schema": 1,
+  "time": 1790104875722108741,
+  "id": "420caf87a75d48eeb99eb51fd203bb16",
+  "papers": {
+    "368a8d92370dcc0d24bb422a64cd251d": {
+      "filenames": [
+        "0501052v1.pdf"
+      ]
+    },
+    "f475b5f407e99617310fe093d61e0c7d": {
+      "arxiv_id": "1512.03547v2",
+      "filenames": [
+        "1512.03547v2.pdf"
+      ]
+    },
+    "df62ea2a0c72716d8c5d80e620647f81": {
+      "arxiv_id": "1809.00533v6",
+      "filenames": [
+        "1809.00533v6.pdf"
+      ]
+    },
+    "d8105e043b2cea8ccee9424763965376": {
+      "arxiv_id": "2308.15440v2",
+      "filenames": [
+        "2308.15440v2.pdf"
+      ]
+    },
+    "16ddf941aeff3497bf0ae66f33b7682f": {
+      "arxiv_id": "2412.16795v1",
+      "filenames": [
+        "2412.16795v1.pdf"
+      ]
+    },
+    "1d519f81eb07e74bd198ac3490d2ea85": {
+      "arxiv_id": "2502.03337v1",
+      "filenames": [
+        "2502.03337v1.pdf"
+      ]
+    }
+  }
+}

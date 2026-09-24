@@ -88,3 +88,7 @@ Entries say **On this computer** or **Not on this computer**. A missing paper wi
 Catalog events contain titles, authors, abstracts, arXiv IDs, filenames, and ratings—no PDFs or absolute local paths. Anyone who can read your GitHub repository can read the catalog. Independent updates use unique event files so Git can merge additions from both computers. If the same rating changes on both computers before syncing, the update with the later computer timestamp wins; keep both system clocks accurate. Sync is explicit, not automatic background uploading.
 
 Advanced: `--catalog PATH` selects a different portable catalog directory. The built-in GitHub sync button requires that directory to be inside the app repository. Back up or sync the entire catalog directory, and do not edit/delete individual event files. Other synchronized folders can be used with an external file-sync service, without using the GitHub button.
+
+## Browser edition
+
+The `site/` folder is a static, owner-private browser edition of the catalog. It supports searching, filtering, sorting, abstracts, local browser ratings, and opening papers on arXiv. It does not access a computer's Downloads folder or host PDF files; the desktop app above keeps its full local workflow. Before publishing an updated catalog snapshot, run `python3 scripts/build_web_catalog.py` and commit the resulting `site/catalog.json` with the rest of the changes. Ratings in the browser are saved in that browser only.

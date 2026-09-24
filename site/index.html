@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#f7f8f4">
+  <title>arXiv Shelf</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header><a class="brand" href="/">arXiv <span>Shelf</span></a><span class="private">PRIVATE LIBRARY</span></header>
+  <main>
+    <section class="intro">
+      <div><div class="eyebrow">A LITTLE ORDER FOR BIG IDEAS</div><h1>Your papers, within reach.</h1><p>Search your collection, revisit abstracts, and open papers on arXiv.</p></div>
+      <a class="primary" href="https://arxiv.org/" target="_blank" rel="noopener">Explore arXiv ↗</a>
+    </section>
+    <div class="summary"><strong id="count">Loading your library…</strong><span id="updated"></span></div>
+    <section class="controls" aria-label="Search and filter papers">
+      <label class="search"><span>Search your library</span><input id="search" type="search" placeholder="Title, author, filename, ID, or abstract…" autocomplete="off"></label>
+      <label><span>Show</span><select id="filter"><option value="all">All papers</option><option value="rated">Rated papers</option><option value="unrated">Unrated papers</option></select></label>
+      <label><span>Sort by</span><select id="sort"><option value="published">Paper date</option><option value="rating">Rating</option><option value="title">Title</option><option value="authors">First author</option><option value="arxiv_id">arXiv ID</option></select></label>
+      <button id="direction" aria-label="Reverse sort direction" title="Reverse sort direction">↓</button>
+    </section>
+    <div class="statusline"><span id="results" aria-live="polite"></span><span id="status" role="status"></span></div>
+    <div id="error" role="alert" hidden></div>
+    <div class="table-wrap"><table><thead><tr><th scope="col">PAPER / AUTHORS</th><th scope="col">FILE / ARXIV ID</th><th scope="col">PUBLISHED</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead><tbody id="papers"></tbody></table></div>
+    <div id="empty" hidden><h2>No papers found</h2><p>Try another search or filter.</p></div>
+    <footer><span>Paper metadata from your synced catalog. PDFs open at arXiv.</span><span>Ratings are saved in this browser.</span></footer>
+  </main>
+</body>
+</html>

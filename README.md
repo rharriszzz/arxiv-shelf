@@ -91,4 +91,4 @@ Advanced: `--catalog PATH` selects a different portable catalog directory. The b
 
 ## Browser edition
 
-The `site/` folder is a static, owner-private browser edition of the catalog. It supports searching, filtering, sorting, abstracts, local browser ratings, and opening papers on arXiv. It does not access a computer's Downloads folder or host PDF files; the desktop app above keeps its full local workflow. Before publishing an updated catalog snapshot, run `python3 scripts/build_web_catalog.py` and commit the resulting `site/catalog.json` with the rest of the changes. Ratings in the browser are saved in that browser only.
+The `dist/` folder is a static, owner-private browser edition of the catalog. It supports searching, filtering, sorting, abstracts, local browser ratings, and opening papers on arXiv. It does not access a computer's Downloads folder or host PDF files; the desktop app above keeps its full local workflow. Before publishing an updated catalog snapshot, run `python3 scripts/build_web_catalog.py` and commit the resulting `dist/catalog.json` with the rest of the changes. Ratings in the browser are saved in that browser only.

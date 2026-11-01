@@ -92,3 +92,9 @@ Advanced: `--catalog PATH` selects a different portable catalog directory. The b
 ## Browser edition
 
 The `dist/` folder is a static, owner-private browser edition of the catalog. It supports searching, filtering, sorting, abstracts, local browser ratings, and opening papers on arXiv. It does not access a computer's Downloads folder or host PDF files; the desktop app above keeps its full local workflow. Before publishing an updated catalog snapshot, run `python3 scripts/build_web_catalog.py` and commit the resulting `dist/catalog.json` with the rest of the changes. Ratings in the browser are saved in that browser only.
+
+### Public project landing page
+
+[rharriszzz.github.io/arxiv-shelf](https://rharriszzz.github.io/arxiv-shelf/) is a public introduction and doorway to the [OpenAI-hosted browser edition](https://arxiv-shelf-library.rharriszzz.chatgpt.site), which may require permission to access. It includes a real screenshot of the live browser edition and links to the source for cloning, running, and adapting the fuller local application described above.
+
+The landing page is plain HTML/CSS in `docs/`, published by `.github/workflows/pages.yml` through GitHub Actions (Settings → Pages → Source: **GitHub Actions**). Only `docs/` is uploaded; `.openai/hosting.json` continues to deploy the browser application from `dist/`. To preview the landing page independently, run `python3 -m http.server 8000 --directory docs`; it does not need the arXiv Shelf server.

@@ -61,8 +61,9 @@ requirement or isolate the source of HTTP 406.
   [Upstream setup-python releases](https://github.com/actions/setup-python/releases)
   were checked before selecting the maintained action major.
 - Add policy tests scanning current instructions, launchers, source, and runtime
-  configuration for older version selections. Check the version pin and CI
-  runtime. Exclude September diagnostics and this historical migration report.
+  configuration for older version selections, including JSON configuration and
+  current diagnostic scripts. Check the version pin and CI runtime. Exclude
+  diagnostic result JSON, the historical Mac handoff, and this migration report.
 
 ## Tests performed
 
@@ -96,6 +97,10 @@ do not require it.
   The fixture now explicitly models Linux/WSL, and a separate test covers the
   macOS opening command and missing-application error. These are mocked desktop
   command checks, not interactive native Mac verification.
+- [The corrected hosted run](https://github.com/rharriszzz/arxiv-shelf/actions/runs/42433697858)
+  passed all four jobs: Python 3.14 on Linux, Windows, and macOS, plus JavaScript.
+  The Windows native batch startup test passed. Platform-inapplicable tests are
+  explicitly skipped; the local WSL run separately covers the actual UNC handoff.
 
 ## Actual PC and platform verification
 

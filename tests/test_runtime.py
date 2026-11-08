@@ -27,10 +27,10 @@ class RuntimePolicyTests(unittest.TestCase):
     def test_current_files_do_not_recommend_older_versions(self):
         # Explicit historical boundaries: never rewrite measured old results.
         historical = {'MAC_API_TEST.md', 'docs/PYTHON_MODERNIZATION_2026-11.md'}
-        excluded_dirs = {'.git', '.venv', '.shelf', 'diagnostics', 'catalog',
+        excluded_dirs = {'.git', '.venv', '.shelf', 'catalog',
                          'tests', '__pycache__', 'node_modules'}
         extensions = {'.py', '.md', '.sh', '.bat', '.command', '.toml', '.ini',
-                      '.cfg', '.yml', '.yaml', '.txt', '.html'}
+                      '.cfg', '.yml', '.yaml', '.txt', '.html', '.json'}
         obsolete = re.compile(
             r'(?<![\d.])3\.1[0-3](?:\.\d+)?(?!\d)'
             r'|(?i:\bpython(?:-version)?[\s:=\'\"]*)3\.[0-9](?!\d)'
@@ -40,7 +40,8 @@ class RuntimePolicyTests(unittest.TestCase):
             for filename in files:
                 path = Path(directory) / filename
                 relative = path.relative_to(ROOT).as_posix()
-                if relative in historical:
+                if (relative in historical or relative == 'dist/catalog.json' or
+                        (relative.startswith('diagnostics/') and path.suffix == '.json')):
                     continue
                 if path.suffix not in extensions and filename not in {
                         '.python-version', '.tool-versions', 'Dockerfile', 'Pipfile'}:

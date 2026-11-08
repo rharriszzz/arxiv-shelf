@@ -1,9 +1,10 @@
+import io
 import json
 from pathlib import Path
 import tempfile
 import threading
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 from http.server import ThreadingHTTPServer
@@ -89,6 +90,27 @@ class ScanTests(unittest.TestCase):
 
     @patch('shelf.time.sleep')
     @patch('shelf.first_page', return_value='A specific thesis title\n\nA dissertation')
+    @patch('shelf.fetch_metadata')
+    def test_legacy_http_failure_stops_all_remaining_lookups(self, fetch, page, sleep):
+        for name in ('0401056.pdf', '0401057.pdf', '2302.13971.pdf'):
+            self.write_pdf(name)
+        index = shelf.Shelf(self.downloads, self.cache)
+        for code in (403, 429, 406):
+            with self.subTest(code=code):
+                fetch.reset_mock()
+                error = HTTPError('https://export.arxiv.org/api/query', code, 'Error', {}, io.BytesIO())
+                fetch.side_effect = error
+                index.scan()
+                fetch.assert_called_once_with([], title='A specific thesis title')
+                self.assertTrue(error.fp.closed)
+                self.assertIn(str(code), index.error)
+                self.assertEqual(len(index.papers), 3)
+                self.assertEqual(len(index.catalog.read()), 3)
+                self.assertTrue(self.cache.exists())
+        sleep.assert_not_called()
+
+    @patch('shelf.time.sleep')
+    @patch('shelf.first_page', return_value='A specific thesis title\n\nA dissertation')
     @patch('shelf.fetch_metadata', return_value={'hep-th/0401056v1': {'title':'A specific thesis title', 'authors':['R. Matos']}})
     def test_title_recovery_requires_matching_legacy_number(self, fetch, page, sleep):
         self.write_pdf('0401056.pdf')
@@ -128,15 +150,37 @@ class ScanTests(unittest.TestCase):
         with self.assertRaises(HTTPError) as caught:
             urlopen(Request(base + '/api/open/' + key, method='POST'))
         self.assertEqual(caught.exception.code, 403)
+        caught.exception.close()
         with urlopen(Request(base + '/api/open/' + key, method='POST', headers={'X-Shelf-Token':'secret'})) as response:
             self.assertEqual(response.status, 200)
         opener.assert_called_once_with(path.resolve(), 'Adobe Acrobat')
         with self.assertRaises(HTTPError) as caught:
             urlopen(Request(base + '/api/open/not-indexed', method='POST', headers={'X-Shelf-Token':'secret'}))
         self.assertEqual(caught.exception.code, 400)
+        caught.exception.close()
         with self.assertRaises(HTTPError) as caught:
             urlopen(Request(base + '/api/papers', headers={'Host':'evil.example'}))
         self.assertEqual(caught.exception.code, 403)
+        caught.exception.close()
+
+
+class HttpDisconnectTests(unittest.TestCase):
+    def test_cancelled_response_is_quiet_but_unrelated_errors_are_reported(self):
+        handler_class = shelf.make_handler(None, 'token', 'Adobe Acrobat')
+        for fail_on in (1, 2):  # Headers or body may race with a browser close.
+            for error in (BrokenPipeError, ConnectionResetError):
+                with self.subTest(write=fail_on, error=error):
+                    handler = handler_class.__new__(handler_class)
+                    handler.request_version = 'HTTP/1.1'
+                    handler.requestline = 'GET / HTTP/1.1'
+                    handler.wfile = Mock()
+                    handler.wfile.write.side_effect = [None] * (fail_on - 1) + [error()]
+                    handler.send(200, {'papers': []})
+                    self.assertEqual(handler.wfile.write.call_count, fail_on)
+        handler.wfile.write.side_effect = OSError('unexpected failure')
+        with self.assertRaisesRegex(OSError, 'unexpected failure'):
+            handler.send(200, b'fixture')
+
 
 if __name__ == '__main__':
     unittest.main()

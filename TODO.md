@@ -1,14 +1,12 @@
-# PC verification follow-up
+# Verification follow-up
 
-Windows/WSL Downloads detection, Acrobat opening with a default-app fallback, browser launching, and Windows/WSL launchers are implemented. On this PC, the WSL server was verified with the Windows Downloads folder, six local PDFs, browser assets, PDF preview, and a successful Windows PDF launch. All 22 automated tests pass in WSL.
+Python 3.14 is selected by all launchers. The Windows-to-WSL launcher, Downloads detection, local PDF opening and preview, catalog display, temporary-copy ratings, and browser controls were verified on this PC. See [the November migration report](docs/PYTHON_MODERNIZATION_2026-11.md) for test results, API evidence, and platform limits.
 
 Remaining checks:
 
-- Poppler is installed and verified in WSL; `0501052v1.pdf` resolves to `quant-ph/0501052v1`.
-- Python 3.12 now selected by PC launchers: it succeeded on the exact cache-miss request that failed under system Python 3.10. All six local papers now have metadata. Runtime/TLS details and diagnostic reports are in [MAC_API_TEST.md](MAC_API_TEST.md).
-- Verify the native Windows Python path on a machine with native Python installed; this PC uses WSL Python.
-- Visually check search, sorting, ratings, and the double-click launcher in the Windows browser.
+- On the Mac, follow the current README setup, then verify Finder startup, browser opening, catalog/ratings, Acrobat opening, and Control-C shutdown with Python 3.14.
+- For optional native Windows use, install Python 3.14 and create a separate native checkout/environment; this PC currently uses WSL Python. Its missing-runtime error was verified.
+- Live API/download success remains unverified after the November HTTP 429. Testing stopped on that response; do not run repeated probes or cache-busting requests.
+- A real Mac-to-PC GitHub catalog/rating sync round trip remains a manual cross-computer check. The automated suite verifies exchange/merging with temporary Git repositories and preservation of unrelated edits.
 
-## Shared catalog follow-up on the PC
-
-The persistent Git-backed catalog, 1–5 star ratings, missing-file download button, and explicit **Sync with GitHub** button are implemented. The `catalog/` folder is shared in this repository; `.shelf/` is still a local cache. Clone/pull the repository on the PC and configure GitHub authentication there. Verify a round trip: sync on the Mac, see the catalog on the PC, download a missing PDF, add/rate a PC paper, sync there, and sync again on the Mac. Check Windows Git/SSH availability and download behavior along with the remaining Acrobat integration above.
+The September HTTP 406 experiments, including Poppler/legacy-ID and earlier PC/Mac results, are retained in [MAC_API_TEST.md](MAC_API_TEST.md) as historical evidence. Use README for current installation and testing commands.

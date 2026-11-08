@@ -1,4 +1,4 @@
-"""PDF transport with one curl retry for arXiv's HTTP 406 client incompatibility."""
+"""PDF transport with one spaced curl retry on HTTP 406."""
 from contextlib import contextmanager
 import shutil
 import subprocess

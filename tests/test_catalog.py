@@ -147,6 +147,22 @@ class CatalogTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 catalog.rate(paper_key(paper('2302.13971')), value)
 
+    def test_event_order_is_timestamp_then_id_and_versions_keep_separate_ratings(self):
+        catalog = Catalog(self.root)
+        first, second = paper('2302.13971v1'), paper('2302.13971v2')
+        a, b = paper_key(first), paper_key(second)
+        events = [
+            {'time': 200, 'id': 'z', 'ratings': {a: 5}},
+            {'time': 100, 'id': 'papers', 'papers': {a: first, b: second}},
+            {'time': 200, 'id': 'a', 'ratings': {a: 2, b: 4}},
+        ]
+        for number, event in enumerate(events):
+            (self.root / f'{number}.json').write_text(json.dumps({'schema': 1, **event}))
+        state = catalog.read()
+        self.assertEqual(len(state), 2)
+        self.assertEqual(state[a]['rating'], 5)
+        self.assertEqual(state[b]['rating'], 4)
+
     def test_corrupt_event_is_not_silently_discarded(self):
         (self.root / 'broken.json').write_text('{')
         with self.assertRaises(ValueError):

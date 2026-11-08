@@ -1,0 +1,33 @@
+{
+  "utc": "2026-11-08T01:03:58.517544+00:00",
+  "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.43",
+  "python": "3.14.4",
+  "openssl": "OpenSSL 3.5.5 27 Jan 2026",
+  "commit": "fb8da95e4379684d9773542997205ea6c0011153",
+  "proxy_configured": {},
+  "cases": [
+    {
+      "label": "single",
+      "ids": [
+        "1512.03547v2"
+      ],
+      "utc": "2026-11-08T01:03:58.519477+00:00",
+      "url": "https://export.arxiv.org/api/query?id_list=1512.03547v2&max_results=1",
+      "headers": {
+        "Content-Type": "text/html",
+        "Cache-Control": null,
+        "Via": "1.1 google, 1.1 varnish, 1.1 varnish, 1.1 varnish",
+        "Date": "Sun, 08 Nov 2026 01:03:58 GMT",
+        "X-Served-By": "cache-lga-kjfk8660072-LGA, cache-lga-kjfk8660072-LGA, cache-lga-kjfk8660026-LGA, cache-ewr-kewr1740067-EWR",
+        "X-Cache": "MISS, MISS, MISS",
+        "Retry-After": null
+      },
+      "outcome": "http_error",
+      "http_status": 429,
+      "body_empty": false,
+      "elapsed_seconds": 0.204
+    }
+  ],
+  "suite": "baseline",
+  "stopped_early": "Access denied or rate limited; no further probes."
+}

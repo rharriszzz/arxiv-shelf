@@ -2,33 +2,48 @@
 
 A local, searchable index of arXiv PDFs in your Downloads folder. See paper titles, all authors, filenames and publication dates; search across those fields and abstracts; sort the library; and click a title or **Open PDF** to read the local PDF.
 
-## Run on this Windows PC (WSL)
+## Install and run (Python 3.14)
 
-Double-click `Start arXiv Shelf.bat` in this folder in Windows Explorer, or run:
+Python **3.14** is the supported runtime on Windows, WSL2, and macOS. No Python packages or build step are required. Clone this repository, or run `git pull --ff-only` in your existing clean checkout, then follow the procedure for your platform below. Keep `catalog/` and `.shelf/` when upgrading: they contain your catalog/ratings and local metadata cache.
+
+Launchers prefer the project's `.venv` and verify that the interpreter is Python 3.14 before starting. If an existing `.venv` uses another version, move it aside and create a fresh one using the commands below. Do not replace Ubuntu's or macOS's system interpreter. Do not share a virtual environment between Windows, WSL, and macOS; create one in each checkout.
+
+### Windows PC using WSL2
+
+Install [uv with its user installer](https://docs.astral.sh/uv/getting-started/installation/) inside WSL if needed. In the repository directory, install a user-managed Python and create the environment:
 
 ```sh
+~/.local/bin/uv python install 3.14
+~/.local/bin/uv venv --python 3.14 --managed-python .venv
 ./"Start arXiv Shelf.sh"
 ```
 
-The launcher uses WSL's installed Python 3.12 and opens **http://127.0.0.1:8765** in your Windows browser. Keep the terminal open while using the shelf; press Ctrl-C to stop. Windows Downloads is detected automatically, including redirected folders. On this PC it is `/mnt/c/Users/rharr/Downloads`. Use `--directory PATH` to select another folder.
+For later launches, double-click `Start arXiv Shelf.bat` from the WSL checkout in Windows Explorer, or run the `.sh` launcher. It opens **http://127.0.0.1:8765** in your Windows browser. Keep the terminal open; press Ctrl-C to stop. Windows Downloads is detected automatically, including redirected folders. Use `--directory PATH` to select another folder.
 
-**Open PDF** opens Windows Acrobat when installed, otherwise your default Windows PDF application. `--acrobat-app 'C:\path\to\Acrobat.exe'` overrides the executable. Browser preview also works.
+**Open PDF** opens Windows Acrobat when installed, otherwise your default Windows PDF application. `--acrobat-app 'C:\path\to\Acrobat.exe'` overrides the executable. Browser preview also works. For legacy numeric filenames, install the optional extractor inside WSL with `sudo apt install poppler-utils`.
 
-This PC has Python 3.12 at `~/.local/bin/python3.12`; the launcher also finds it when Windows starts WSL without loading a shell profile. The project pins `3.12` in `.python-version`. Direct runs on this PC should use `python3.12 shelf.py`. Its system `python3` is 3.10 and returned HTTP 406 on uncached arXiv requests; the same request succeeded with the installed 3.12 runtime. See [the diagnostic results](MAC_API_TEST.md) for evidence and limitations.
+### Native Windows
 
-For legacy numeric filenames, install the optional extractor inside WSL with `sudo apt install poppler-utils`. Without it, those papers may need their full arXiv ID added to the filename.
+Install **Python 3.14** from [python.org](https://www.python.org/downloads/windows/), including the Python launcher. In a terminal in your native Windows checkout:
 
-For a native Windows checkout, install Python 3.12 and double-click the same `.bat` launcher, or run `py -3.12 shelf.py --open-browser`. No Python packages are required. A native Windows installation of Poppler can provide `pdftotext.exe` on PATH for legacy IDs.
-
-## Run on macOS
-
-Requires Python 3.10 or newer and Adobe Acrobat / Acrobat Reader. No Python packages or build step are needed.
-
-```sh
-python3 shelf.py
+```bat
+py -3.14 -m venv .venv
+".venv\Scripts\python.exe" --version
+"Start arXiv Shelf.bat"
 ```
 
-Open **http://127.0.0.1:8765** in your browser. Leave the terminal running; press Control-C to stop. Alternatively, double-click `Start arXiv Shelf.command` in Finder. The launcher opens the browser automatically.
+For later launches, double-click the `.bat` file. A native Windows installation of Poppler can provide `pdftotext.exe` on PATH for legacy IDs.
+
+### macOS
+
+Install **Python 3.14** using the [python.org macOS installer](https://www.python.org/downloads/macos/). Use Adobe Acrobat / Acrobat Reader for **Open PDF**. In Terminal in the repository directory:
+
+```sh
+python3.14 -m venv .venv
+./"Start arXiv Shelf.command"
+```
+
+For later launches, double-click `Start arXiv Shelf.command` in Finder. It uses the same explicit Python 3.14 selection as the shell launcher and opens the server's actual URL after startup, including when you pass `--port`. Leave the terminal running; press Control-C to stop.
 
 The first scan retrieves titles and authors from arXiv and may take a few minutes. Subsequent scans reuse cached metadata. Click **Rescan folder** after downloading or moving files. Duplicate downloads and different versions remain separate entries so you can open the exact file you want.
 
@@ -37,11 +52,11 @@ For older numeric filenames such as `0410144.pdf`, the app uses `pdftotext` to r
 ### Options
 
 ```sh
-python3 shelf.py --directory ~/Documents/Papers --recursive
-python3 shelf.py --offline
-python3 shelf.py --scan-only
-python3 shelf.py --port 8766
-python3 shelf.py --acrobat-app "Adobe Acrobat Reader"
+.venv/bin/python shelf.py --directory ~/Documents/Papers --recursive
+.venv/bin/python shelf.py --offline
+.venv/bin/python shelf.py --scan-only
+.venv/bin/python shelf.py --port 8766
+.venv/bin/python shelf.py --acrobat-app "Adobe Acrobat Reader"
 ```
 
 - `--directory`: scan another folder (defaults to `~/Downloads`).
@@ -66,10 +81,12 @@ Search uses all typed words, ignoring case. Sorting by author uses the first aut
 ## Development
 
 ```sh
-python3 -m unittest discover -s tests -v
+.venv/bin/python -m unittest discover -s tests -v
 node --check web/app.js
 node tests/test_download_ui.js
 ```
+
+On native Windows, use `.venv\Scripts\python.exe` in place of `.venv/bin/python`. Node.js is needed only for JavaScript checks. GitHub Actions runs the complete standard-library suite on Python 3.14 for Linux, Windows, and macOS, plus the JavaScript checks. Runtime policy tests prevent obsolete versions from returning in current launchers, instructions, and configuration; historical diagnostics are excluded.
 
 The app uses Python's standard library and plain HTML/CSS/JavaScript. Tests cover filename recognition, legacy ID recovery, metadata parsing, duplicate handling, cached/offline scans, network failures, subfolders, symlink boundaries, and HTTP launch protections.
 
@@ -79,7 +96,7 @@ The portable **catalog/** folder is now stored in this Git repository. It rememb
 
 Use **Sync with GitHub** before switching computers, and again after opening the shelf on the other computer. Sync commits only catalog changes, pulls the other computer's updates, then pushes your changes. It needs Git and working authentication for `origin` on each computer. It reports authentication/network errors without discarding your local catalog. If you have uncommitted application code changes, commit or stash them in your terminal first. If a pull updates application code, restart the app to load that code.
 
-On the PC, clone this repository (or pull the latest changes in an existing checkout), then run `python shelf.py` or `py shelf.py`. The catalog comes with the repository; `.shelf/` stays local and is not shared. Windows and WSL support Downloads detection, Acrobat opening, and the double-click launcher described above.
+On the PC, clone this repository (or pull the latest changes in an existing checkout), then use the launcher for your platform described above. The catalog comes with the repository; `.shelf/` stays local and is not shared. Windows and WSL support Downloads detection, Acrobat opening, and the double-click launcher described above.
 
 Each entry has a **Not rated / 1–5 stars** selector. Ratings save immediately on this computer and travel to the other one at the next GitHub sync. Choose **Rating** in the sort menu, or **Rated papers** in the filter.
 
@@ -91,10 +108,22 @@ Advanced: `--catalog PATH` selects a different portable catalog directory. The b
 
 ## Browser edition
 
-The `dist/` folder is a static, owner-private browser edition of the catalog. It supports searching, filtering, sorting, abstracts, local browser ratings, and opening papers on arXiv. It does not access a computer's Downloads folder or host PDF files; the desktop app above keeps its full local workflow. Before publishing an updated catalog snapshot, run `python3 scripts/build_web_catalog.py` and commit the resulting `dist/catalog.json` with the rest of the changes. Ratings in the browser are saved in that browser only.
+The `dist/` folder is a static, owner-private browser edition of the catalog. It supports searching, filtering, sorting, abstracts, local browser ratings, and opening papers on arXiv. It does not access a computer's Downloads folder or host PDF files; the desktop app above keeps its full local workflow. Before publishing an updated catalog snapshot, run `.venv/bin/python scripts/build_web_catalog.py` and commit the resulting `dist/catalog.json` with the rest of the changes. Ratings in the browser are saved in that browser only.
 
 ### Public project landing page
 
 [rharriszzz.github.io/arxiv-shelf](https://rharriszzz.github.io/arxiv-shelf/) is a public introduction and doorway to the [OpenAI-hosted browser edition](https://arxiv-shelf-library.rharriszzz.chatgpt.site), which may require permission to access. It includes a real screenshot of the live browser edition and links to the source for cloning, running, and adapting the fuller local application described above.
 
-The landing page is plain HTML/CSS in `docs/`, published by `.github/workflows/pages.yml` through GitHub Actions (Settings → Pages → Source: **GitHub Actions**). Only `docs/` is uploaded; `.openai/hosting.json` continues to deploy the browser application from `dist/`. To preview the landing page independently, run `python3 -m http.server 8000 --directory docs`; it does not need the arXiv Shelf server.
+The landing page is plain HTML/CSS in `docs/`, published by `.github/workflows/pages.yml` through GitHub Actions (Settings → Pages → Source: **GitHub Actions**). Only `docs/` is uploaded; `.openai/hosting.json` continues to deploy the browser application from `dist/`. To preview the landing page independently, run `.venv/bin/python -m http.server 8000 --directory docs`; it does not need the arXiv Shelf server.
+
+## Runtime and API investigation
+
+The supported version is pinned in `.python-version`; a version file alone does not change the interpreter used by a desktop launcher. See [the November migration report](docs/PYTHON_MODERNIZATION_2026-11.md) for verification results and remaining platform checks.
+
+[MAC_API_TEST.md](MAC_API_TEST.md) and the September JSON reports in `diagnostics/` are historical experiments, not current installation instructions. Their results mix interpreter/TLS, HTTP client, network, timing, and cache differences; they do not establish a required older Python runtime. To investigate a new API failure, stop the shelf and run one bounded probe with Python 3.14:
+
+```sh
+.venv/bin/python diagnostics/arxiv_probe.py --suite baseline --output /tmp/arxiv-probe.json
+```
+
+Use a new report filename (and an appropriate temporary path on Windows). The probe makes at most three sequential requests spaced 3.2 seconds after completion, writes no catalog data, and stops on HTTP 403 or 429. Stop further live API/download testing after an explicit block or throttle. Do not add cache-busting parameters or retry loops. The November probe stopped after its first request returned HTTP 429; it could not establish whether the earlier 406 issue is resolved.

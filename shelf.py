@@ -1,5 +1,5 @@
-#!/usr/bin/env python3
-"""A local, dependency-free arXiv PDF shelf (Python 3.10+)."""
+#!/usr/bin/env python3.14
+"""A local, dependency-free arXiv PDF shelf (Python 3.14)."""
 import argparse
 import hashlib
 import json
@@ -20,6 +20,7 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlencode, urlparse, unquote
 from urllib.request import Request, urlopen
+from urllib.error import HTTPError
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parent
@@ -244,6 +245,8 @@ class Shelf:
                 papers.append(paper)
             # For unstamped older PDFs, search the opening title block, then require
             # the returned legacy number to match the filename before accepting it.
+            errors = []
+            lookup_stopped = False
             if not self.offline:
                 for paper in papers:
                     if paper['arxiv_id'] or not paper['excerpt']:
@@ -264,13 +267,19 @@ class Shelf:
                                 if not version or key == identifier:
                                     self.metadata[identifier] = meta
                                 break
+                    except HTTPError as exc:
+                        # Do not let legacy recovery hide a denial/throttle and
+                        # continue with other title or ID requests in this scan.
+                        errors.append(f'arXiv lookup failed: {exc}')
+                        exc.close()
+                        lookup_stopped = True
+                        break
                     except Exception:
                         pass  # The normal lookup below reports network failures.
                     time.sleep(3.1)
             ids = list(dict.fromkeys(p['arxiv_id'] for p in papers if p['arxiv_id'] and p['arxiv_id'] not in self.metadata))
-            errors = []
             for offset in range(0, len(ids), 25):
-                if self.offline:
+                if self.offline or lookup_stopped:
                     break
                 batch = ids[offset:offset + 25]
                 self.message = f'Fetching arXiv metadata: {offset + 1}–{min(offset + 25, len(ids))} of {len(ids)}'
@@ -286,6 +295,8 @@ class Shelf:
                             self.metadata[identifier] = meta
                 except Exception as exc:
                     errors.append(f'arXiv lookup failed: {exc}')
+                    if isinstance(exc, HTTPError):
+                        exc.close()
                     # Keep cached results and avoid hammering a failing service.
                     break
             for p in papers:
@@ -415,8 +426,13 @@ def make_handler(shelf, token, app):
             self.send_header('Cache-Control', 'no-store')
             self.send_header('X-Content-Type-Options', 'nosniff')
             self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; object-src 'none'; frame-ancestors 'none'")
-            self.end_headers()
-            self.wfile.write(data)
+            try:
+                self.end_headers()
+                self.wfile.write(data)
+            except (BrokenPipeError, ConnectionResetError):
+                # Navigation or closing a browser tab can cancel an in-flight
+                # poll/preview. The server should keep serving without a traceback.
+                pass
 
         def local_request(self):
             return self.headers.get('Host') in {f'127.0.0.1:{self.server.server_port}', f'localhost:{self.server.server_port}'}
@@ -481,6 +497,9 @@ def make_handler(shelf, token, app):
 
 
 def main():
+    if sys.version_info[:2] != (3, 14):
+        print('Python 3.14 is required. Use the project launcher or a Python 3.14 virtual environment; see README.md.', file=sys.stderr)
+        return 1
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--directory', type=Path, default=None)
     parser.add_argument('--cache', type=Path, default=ROOT / '.shelf' / 'index.json')

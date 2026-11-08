@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3.14
 """Read-only, rate-spaced comparison using the shelf's actual API request code."""
 import argparse
 from datetime import datetime, timezone
@@ -76,8 +76,9 @@ def main():
                           missing_ids=sorted(set(ids) - set(records)))
         except HTTPError as exc:
             # Omit response bodies; a network gateway could include personal data.
-            result.update(outcome='http_error', http_status=exc.code,
-                          body_empty=not bool(exc.read(1)))
+            with exc:
+                result.update(outcome='http_error', http_status=exc.code,
+                              body_empty=not bool(exc.read(1)))
         except Exception as exc:
             result.update(outcome='transport_error', error_type=type(exc).__name__)
         result['elapsed_seconds'] = round(time.monotonic() - started, 3)

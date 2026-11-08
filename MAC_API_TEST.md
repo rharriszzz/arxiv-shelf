@@ -1,3 +1,8 @@
+> Historical September 2026 experiments and handoff notes. Commands and version
+> numbers below record that investigation; they are not current installation or
+> testing instructions. Python 3.14 is now the supported runtime. Follow
+> [README.md](README.md) and [the November migration report](docs/PYTHON_MODERNIZATION_2026-11.md).
+
 # Requested Mac test: arXiv HTTP 406
 
 Please run this comparison on the Mac after pulling this commit, and record the

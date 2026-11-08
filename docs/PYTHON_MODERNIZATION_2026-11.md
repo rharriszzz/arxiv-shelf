@@ -73,7 +73,7 @@ for an additional browser smoke test; the app and standard-library test suite
 do not require it.
 
 - Baseline: all 28 existing Python unit tests and both JavaScript tests passed.
-- Final standard-library suite: **39 tests, 38 passed, one native Windows-only
+- Final standard-library suite: **40 tests, 39 passed, one native Windows-only
   test skipped on WSL**. The actual Windows-to-WSL batch integration test passed,
   including paths with spaces and a project environment. POSIX launcher tests
   cover restricted PATH, arguments/port, a rejected environment, user-managed
@@ -90,6 +90,12 @@ do not require it.
 - `node --check web/app.js` and `node tests/test_download_ui.js`: passed, including
   progress, successful indexing/button transition, and visible failure/retry.
 - Shell syntax and `git diff --check`: passed.
+- The first hosted CI run passed Linux, native Windows (including batch startup),
+  and JavaScript checks. It exposed an existing Windows PDF test that mocked WSL
+  without setting the platform, so macOS correctly entered its own opening branch.
+  The fixture now explicitly models Linux/WSL, and a separate test covers the
+  macOS opening command and missing-application error. These are mocked desktop
+  command checks, not interactive native Mac verification.
 
 ## Actual PC and platform verification
 

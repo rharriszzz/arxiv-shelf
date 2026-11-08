@@ -20,6 +20,7 @@ class DesktopTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, '--directory'):
             desktop.default_directory()
 
+    @patch('desktop.sys.platform', 'linux')
     @patch('desktop.is_wsl', return_value=True)
     @patch('desktop.subprocess.check_output', return_value="C:\\Downloads\\O'Brien é.pdf\n")
     @patch('desktop.subprocess.run')
@@ -32,6 +33,18 @@ class DesktopTests(unittest.TestCase):
         self.assertIn("'C:\\Downloads\\O''Brien é.pdf'", script)
         self.assertIn('Acrobat.exe', script)
         self.assertIn('Start-Process -FilePath $target', script)
+
+    @patch('desktop.sys.platform', 'darwin')
+    @patch('desktop.subprocess.run')
+    def test_macos_pdf_command_and_application_error(self, run):
+        path = Path("/Downloads/O'Brien é.pdf")
+        run.return_value = subprocess.CompletedProcess([], 0, '', '')
+        desktop.open_pdf(path, 'Adobe Acrobat Reader')
+        run.assert_called_once_with(['open', '-a', 'Adobe Acrobat Reader', str(path)],
+                                    capture_output=True, text=True, timeout=15)
+        run.return_value = subprocess.CompletedProcess([], 1, '', 'Application not found')
+        with self.assertRaisesRegex(ValueError, 'Check --acrobat-app'):
+            desktop.open_pdf(path, 'Missing Reader')
 
     @patch('desktop.subprocess.run')
     def test_windows_failure_is_reported(self, run):
